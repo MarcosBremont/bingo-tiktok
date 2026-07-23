@@ -8,9 +8,24 @@
         :root { --bg: #0f172a; --card: #1e293b; --accent: #2563eb; --success: #16a34a; --danger: #dc2626; --marked: #16a34a; --text: #f8fafc; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
         body { background: var(--bg); color: var(--text); padding: 20px; }
-        .grid-container { display: grid; grid-template-columns: 320px 1fr 300px; gap: 20px; }
+        
+        /* FIX: Uso de minmax(0, 1fr) para evitar desbordamientos horizontales de la grilla */
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: 320px minmax(0, 1fr) 300px; 
+            gap: 20px; 
+        }
         @media (max-width: 1024px) { .grid-container { grid-template-columns: 1fr; } }
-        .panel { background: var(--card); padding: 20px; border-radius: 12px; }
+        
+        /* FIX: min-width: 0 imprescindible en contenedores flex/grid */
+        .panel { 
+            background: var(--card); 
+            padding: 20px; 
+            border-radius: 12px; 
+            min-width: 0;
+            overflow: hidden;
+        }
+
         h2 { font-size: 1.1rem; color: #93c5fd; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-bottom: 12px; }
         input, select, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; }
         button { background: var(--accent); border: none; font-weight: bold; cursor: pointer; }
@@ -18,7 +33,7 @@
         .btn-danger { background: var(--danger); }
         .btn-warning { background: #d97706; }
 
-        /* Corrección de Alineación de Modos de Victoria */
+        /* Alineación de Modos de Victoria */
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
         .checkbox-group label { display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 10px 12px; border-radius: 6px; border: 1px solid #334155; cursor: pointer; font-size: 0.95rem; }
         .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
@@ -26,6 +41,34 @@
         .giant-ball { width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 2.8rem; font-weight: bold; margin: 15px auto; box-shadow: 0 0 15px rgba(37, 99, 235, 0.5); }
         .feed { height: 200px; overflow-y: auto; background: #0f172a; padding: 10px; border-radius: 6px; font-size: 0.85rem; }
         .room-badge { background: #334155; color: #f59e0b; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 1.3rem; display: inline-block; margin-bottom: 10px; letter-spacing: 2px; }
+
+        /* FIX: Historial en cuadrícula flexible que envuelve las balotas sin romper el layout */
+        .history-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            max-height: 180px; 
+            overflow-y: auto; 
+            padding: 10px; 
+            background: #0f172a; 
+            border-radius: 8px; 
+            border: 1px solid #334155; 
+            align-content: flex-start;
+        }
+        .history-ball { 
+            width: 38px; 
+            height: 38px; 
+            border-radius: 50%; 
+            background: #2563eb; 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-size: 0.85rem; 
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
 
         /* Cartones del Anfitrión */
         .cards-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 15px; }
@@ -37,9 +80,49 @@
         .cell.free { background: #d97706; font-size: 0.75rem; }
         .bingo-btn { background: #dc2626; margin-top: 8px; padding: 10px; font-size: 0.95rem; }
 
-        /* Historial de Balotas */
-        .history-container { display: flex; gap: 8px; overflow-x: auto; padding: 10px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; min-height: 55px; align-items: center; }
-        .history-ball { min-width: 38px; height: 38px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; box-shadow: 0 0 4px rgba(0,0,0,0.5); }
+        /* MODAL DE GANADOR (ALERT SHOWDIALOG) */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-card {
+            background: #1e293b;
+            border: 3px solid #22c55e;
+            border-radius: 16px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-card h2 {
+            font-size: 2rem;
+            color: #4ade80;
+            border: none;
+            margin-bottom: 10px;
+        }
+        .modal-card .winner-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 15px 0 5px 0;
+        }
+        .modal-card .winner-details {
+            font-size: 1rem;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -50,7 +133,7 @@
     </div>
 
     <!-- MODAL AUTENTICACIÓN HOST -->
-    <div id="authModal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 99;">
+    <div id="authModal" class="modal-overlay" style="display: flex;">
         <div style="background: var(--card); padding: 25px; border-radius: 12px; width: 320px; text-align: center;">
             <h2>🔒 Acceso Administrador</h2>
             <input type="password" id="hostPass" placeholder="Contraseña Maestra">
@@ -58,7 +141,18 @@
         </div>
     </div>
 
+    <!-- MODAL SHOWDIALOG DE BINGO GANADOR -->
+    <div id="winnerModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>🎉 ¡TENEMOS UN GANADOR! 🎉</h2>
+            <div class="winner-name" id="winnerModalName">Jugador</div>
+            <div class="winner-details" id="winnerModalDetails">Cartón #1</div>
+            <button class="btn-success" style="font-size: 1.1rem; padding: 12px;" onclick="closeWinnerModal()">¡Entendido!</button>
+        </div>
+    </div>
+
     <div class="grid-container">
+        <!-- PANEL IZQUIERDO -->
         <div class="panel">
             <h2>🔑 Control de Sala</h2>
             <button class="btn-warning" onclick="newRoomCode()">🎲 Generar Nueva Sala</button>
@@ -81,6 +175,7 @@
             <button class="btn-danger" onclick="resetGame()">Reiniciar Partida</button>
         </div>
 
+        <!-- PANEL CENTRAL -->
         <div class="panel">
             <h2>🎱 Control de Balotas</h2>
             <button class="btn-success" style="font-size: 1.1rem; padding: 15px;" onclick="drawRandom()">🎲 Sacar Balota Aleatoria</button>
@@ -106,6 +201,7 @@
             <div class="cards-container" id="hostCardsContainer"></div>
         </div>
 
+        <!-- PANEL DERECHO -->
         <div class="panel">
             <h2>🏆 Ganadores</h2>
             <div class="feed" id="winnersList"></div>
@@ -154,12 +250,23 @@
             renderHistory(drawnHistory);
         });
 
+        // RECEPCIÓN DE BINGO GANADOR (MODAL Y FEED)
         socket.on('bingoWinner', ({ username, cardIndex, patterns }) => {
+            // 1. Mostrar Modal Destacado en pantalla
+            document.getElementById('winnerModalName').innerText = username;
+            document.getElementById('winnerModalDetails').innerText = `Cartón #${cardIndex + 1} • Patron(es): ${patterns.join(', ')}`;
+            document.getElementById('winnerModal').style.display = 'flex';
+
+            // 2. Agregar al historial lateral
             const feed = document.getElementById('winnersList');
             feed.innerHTML = `<div style="background:#14532d; padding:8px; border-radius:6px; margin-bottom:6px;">
                 <strong>🎉 ¡BINGO! ${username}</strong><br><small>Cartón #${cardIndex + 1} (${patterns.join(', ')})</small>
             </div>` + feed.innerHTML;
         });
+
+        function closeWinnerModal() {
+            document.getElementById('winnerModal').style.display = 'none';
+        }
 
         socket.on('bingoRejected', ({ reason }) => {
             alert(`⚠️ BINGO NO VÁLIDO: ${reason}`);
@@ -175,6 +282,7 @@
             document.getElementById('winnersList').innerHTML = '';
             document.getElementById('hostCardsContainer').innerHTML = '';
             document.getElementById('hostCardSetup').style.display = 'flex';
+            closeWinnerModal();
             renderHistory([]);
         });
 
@@ -189,6 +297,7 @@
                 container.innerHTML = `<span style="color:#64748b; font-size:0.85rem;">Ninguna balota cantada aún.</span>`;
                 return;
             }
+            // Mostramos la balota más reciente primero
             container.innerHTML = history.slice().reverse().map(b => `<div class="history-ball">${b.formatted}</div>`).join('');
         }
 
