@@ -9,7 +9,6 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// CLAVE DE SEGURIDAD PARA EL ANFITRIÓN
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "bingo2026";
 
 const rooms = {};
@@ -119,7 +118,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('claimBingo', ({ roomId, username, cardIndex }) => {
+    socket.on('claimBingo', ({ roomId, username, cardIndex, markedNumbers }) => {
         const room = rooms[roomId];
         if (!room) return;
 
@@ -135,6 +134,7 @@ io.on('connection', (socket) => {
                 username, 
                 cardIndex, 
                 card: claimedCard,
+                markedNumbers: markedNumbers || [],
                 drawnNumbers: room.drawnNumbers
             });
         }

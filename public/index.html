@@ -34,12 +34,18 @@
         .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; user-select: none; font-size: 1rem; cursor: pointer; }
         .cell.free { background: var(--accent); font-size: 0.7rem; }
         .cell.marked { background: #22c55e !important; color: white; }
+        
         .cell.valid-match { background: #22c55e !important; color: white; border: 2px solid #fff; font-weight: bold; }
+        .cell.bad-match { background: #ef4444 !important; color: white; border: 2px solid #ff9999; font-weight: bold; }
 
-        /* Panel de Alerta para Verificación de Bingo */
-        #alertBox { display: none; background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; width: 95%; max-width: 450px; text-align: center; border: 3px solid #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.4); }
+        #alertBox { display: none; background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; width: 95%; max-width: 480px; text-align: center; border: 3px solid #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.4); }
+        #alertBox.has-error { border-color: #ef4444; box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
         #alertBox h2 { color: #22c55e; margin-top: 0; }
-        .verify-card { max-width: 300px; margin: 15px auto; }
+        #alertBox.has-error h2 { color: #ef4444; }
+        .legend { display: flex; justify-content: center; gap: 15px; font-size: 0.8rem; margin: 10px 0; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+        .verify-card { max-width: 320px; margin: 10px auto; }
         .close-alert-btn { background: #ef4444; margin-top: 15px; padding: 8px 18px; font-size: 0.9rem; }
 
         footer { margin-top: 25px; font-size: 0.95rem; color: #94a3b8; text-align: center; }
@@ -48,19 +54,22 @@
 </head>
 <body>
 
-    <!-- Cuadro de Alerta y Verificación de Bingo -->
     <div id="alertBox">
         <h2 id="alertTitle">🎉 ¡ALGUIEN CANTÓ BINGO!</h2>
-        <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 10px;"></div>
-        <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">Los números resaltados en verde ya han salido en la tómbola:</p>
+        <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 5px;"></div>
+        
+        <div class="legend">
+            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido (Marcó y salió)</div>
+            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto (Marcó pero no salió)</div>
+        </div>
+
         <div id="verifyCardContainer" class="verify-card"></div>
-        <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación / Continuar Partida ❌</button>
+        <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación ❌</button>
     </div>
 
     <div class="box" style="max-width: 450px;" id="setupBox">
         <h1>🎱 Panel Anfitrión</h1>
-        
-        <input type="password" id="hostPassword" placeholder="Clave de Anfitrión (Oculta)" autocomplete="off">
+        <input type="password" id="hostPassword" placeholder="Clave de Anfitrión" autocomplete="off">
 
         <label style="display:block; margin-bottom: 10px;">
             <input type="checkbox" id="hostPlay" onchange="toggleHostOptions()"> ¿Quieres jugar con cartones como anfitrión?
@@ -108,6 +117,16 @@
         const socket = io();
         let currentRoomId = null;
 
+        // Cargar audios
+        const audioClick = new Audio('/click.mp3');
+        const audioBingo = new Audio('/bingo.mp3');
+        const audioFail = new Audio('/gameover.mp3');
+
+        function playSound(audio) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+        }
+
         function toggleHostOptions() {
             const isChecked = document.getElementById('hostPlay').checked;
             document.getElementById('hostCardOptions').style.display = isChecked ? 'block' : 'none';
@@ -119,7 +138,6 @@
             const cardCount = document.getElementById('hostCardCount').value;
 
             if (!password) return alert('Debes ingresar la clave de anfitrión.');
-
             socket.emit('createRoom', { password, hostPlay, cardCount });
         }
 
@@ -139,6 +157,7 @@
             cards.forEach((card, index) => {
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'single-card-box';
+                cardDiv.id = `host-card-${index}`;
                 cardDiv.innerHTML = `<div style="color:var(--cyan); font-weight:bold; margin-bottom:5px;">Cartón #${index + 1}</div>`;
                 
                 const grid = document.createElement('div');
@@ -166,7 +185,18 @@
                 btnBingo.style.cssText = 'background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%;';
                 btnBingo.innerText = ` ¡BINGO (Cartón #${index + 1})! 🎉`;
                 btnBingo.onclick = () => {
-                    socket.emit('claimBingo', { roomId: currentRoomId, username: 'Anfitrión (Tú)', cardIndex: index });
+                    const marked = [];
+                    cardDiv.querySelectorAll('.cell.marked').forEach(c => {
+                        const text = c.innerText.replace('★ ', '');
+                        if(text !== 'LIBRE') marked.push(parseInt(text));
+                    });
+
+                    socket.emit('claimBingo', { 
+                        roomId: currentRoomId, 
+                        username: 'Anfitrión (Tú)', 
+                        cardIndex: index,
+                        markedNumbers: marked
+                    });
                 };
 
                 cardDiv.appendChild(grid);
@@ -180,12 +210,14 @@
         }
 
         function resetGame() {
-            if (confirm("¿Estás seguro de reiniciar la partida? Se limpiará la tómbola y se entregarán nuevos cartones.")) {
+            if (confirm("¿Estás seguro de reiniciar la partida?")) {
                 socket.emit('resetGame', { roomId: currentRoomId });
             }
         }
 
         socket.on('newBall', ({ ball, history }) => {
+            playSound(audioClick); // Sonido de sacar balota
+
             let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
             document.getElementById('currentBall').innerText = `${letter}${ball}`;
 
@@ -202,7 +234,7 @@
             listDiv.innerHTML = players.map(p => `<span class="player-chip">${p}</span>`).join('');
         });
 
-        socket.on('bingoClaimed', ({ username, cardIndex, card, drawnNumbers }) => {
+        socket.on('bingoClaimed', ({ username, cardIndex, card, markedNumbers, drawnNumbers }) => {
             const alertBox = document.getElementById('alertBox');
             document.getElementById('alertTitle').innerText = `🎉 ¡${username.toUpperCase()} CANTÓ BINGO!`;
             document.getElementById('alertSubtitle').innerText = `Verificando Cartón #${cardIndex + 1}:`;
@@ -213,6 +245,8 @@
             const grid = document.createElement('div');
             grid.className = 'card-grid';
             grid.innerHTML = '<div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>';
+
+            let hasErrors = false;
 
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 5; c++) {
@@ -225,13 +259,28 @@
                         cell.innerText = '★ LIBRE';
                     } else {
                         cell.innerText = val;
-                        if (drawnNumbers.includes(val)) {
-                            cell.classList.add('valid-match');
+                        const isMarked = markedNumbers.includes(val);
+                        const isDrawn = drawnNumbers.includes(val);
+
+                        if (isMarked && isDrawn) {
+                            cell.classList.add('valid-match'); 
+                        } else if (isMarked && !isDrawn) {
+                            cell.classList.add('bad-match');   
+                            hasErrors = true; // Hay al menos un número en rojo
                         }
                     }
                     grid.appendChild(cell);
                 }
             }
+
+            if (hasErrors) {
+                alertBox.classList.add('has-error');
+                playSound(audioFail); // Reproduce gameover.mp3 si falló
+            } else {
+                alertBox.classList.remove('has-error');
+                playSound(audioBingo); // Reproduce bingo.mp3 si fue perfecto
+            }
+
             container.appendChild(grid);
             alertBox.style.display = 'block';
         });
