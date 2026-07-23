@@ -67,6 +67,7 @@ io.on('connection', (socket) => {
             hostId: socket.id,
             hostPlay,
             hostCardCount: cardCount,
+            hostCards: hostCards,
             drawnNumbers: [],
             players: {}
         };
@@ -122,7 +123,21 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room) return;
 
-        io.to(roomId).emit('bingoClaimed', { username, cardIndex });
+        let claimedCard = null;
+        if (socket.id === room.hostId) {
+            claimedCard = room.hostCards[cardIndex];
+        } else if (room.players[socket.id]) {
+            claimedCard = room.players[socket.id].cards[cardIndex];
+        }
+
+        if (claimedCard) {
+            io.to(roomId).emit('bingoClaimed', { 
+                username, 
+                cardIndex, 
+                card: claimedCard,
+                drawnNumbers: room.drawnNumbers
+            });
+        }
     });
 
     socket.on('resetGame', ({ roomId }) => {
@@ -135,6 +150,7 @@ io.on('connection', (socket) => {
         if (room.hostPlay) {
             for (let i = 0; i < room.hostCardCount; i++) newHostCards.push(generateBingoCard());
         }
+        room.hostCards = newHostCards;
 
         socket.emit('gameResetHost', { cards: newHostCards });
 
