@@ -9,6 +9,9 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// CLAVE DE SEGURIDAD PARA EL ANFITRIÓN (Cámbiala por la tuya)
+const HOST_PASSWORD = process.env.HOST_PASSWORD || "bingo2026";
+
 const rooms = {};
 
 function getUniqueNumbers(min, max, count) {
@@ -46,7 +49,13 @@ function getPlayerList(roomId) {
 
 io.on('connection', (socket) => {
 
-    socket.on('createRoom', ({ hostPlay = false, cardCount = 1 }) => {
+    // VALIDACIÓN DE SEGURIDAD AL CREAR SALA
+    socket.on('createRoom', ({ password, hostPlay = false, cardCount = 1 }) => {
+        if (password !== HOST_PASSWORD) {
+            socket.emit('errorMsg', 'Clave de anfitrión incorrecta. Acceso denegado.');
+            return;
+        }
+
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
         
         let hostCards = [];
@@ -110,7 +119,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // TRANSMITIR BINGO A TODOS EN LA SALA
     socket.on('claimBingo', ({ roomId, username, cardIndex }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -118,23 +126,19 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('bingoClaimed', { username, cardIndex });
     });
 
-    // REINICIAR PARTIDA
     socket.on('resetGame', ({ roomId }) => {
         const room = rooms[roomId];
         if (!room || room.hostId !== socket.id) return;
 
         room.drawnNumbers = [];
 
-        // Generar nuevos cartones para el anfitrión si está jugando
         let newHostCards = [];
         if (room.hostPlay) {
             for (let i = 0; i < room.hostCardCount; i++) newHostCards.push(generateBingoCard());
         }
 
-        // Notificar al anfitrión
         socket.emit('gameResetHost', { cards: newHostCards });
 
-        // Regenerar cartones para todos los jugadores en la sala
         for (const socketId in room.players) {
             const player = room.players[socketId];
             const newCards = [];
