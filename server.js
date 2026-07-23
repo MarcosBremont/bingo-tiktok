@@ -34,7 +34,7 @@ function getBingoLetter(num) {
 let gameState = {
     roomCode: generateRoomCode(),
     drawnNumbers: [],
-    drawnHistory: [], // Historial completo con formato { number: 4, letter: 'B', formatted: 'B4' }
+    drawnHistory: [],
     lastDrawnBall: null,
     players: {},
     winModes: ['line', 'diagonal', 'corners', 'full'],
@@ -147,7 +147,8 @@ io.on('connection', (socket) => {
                 username: player.username,
                 socketId: socket.id,
                 cardIndex: cardIndex,
-                patterns: validation.matchedPatterns
+                patterns: validation.matchedPatterns,
+                winningBalls: validation.winningBalls
             });
         } else {
             socket.emit('bingoRejected', {
@@ -191,7 +192,8 @@ io.on('connection', (socket) => {
                                 username: player.username,
                                 socketId: playerSocketId,
                                 cardIndex: index,
-                                patterns: val.matchedPatterns
+                                patterns: val.matchedPatterns,
+                                winningBalls: val.winningBalls
                             });
                         }
                     });
@@ -233,43 +235,63 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
     );
 
     const matchedPatterns = [];
+    const winningBallsSet = new Set();
 
     if (activeModes.includes('line')) {
-        let hasLine = false;
         // Horizontales
         for (let r = 0; r < 5; r++) {
-            if (grid[r].every(Boolean)) { hasLine = true; break; }
-        }
-        // Verticales
-        if (!hasLine) {
-            for (let c = 0; c < 5; c++) {
-                if (grid.every(row => row[c])) { hasLine = true; break; }
+            if (grid[r].every(Boolean)) {
+                matchedPatterns.push('Línea Horizontal');
+                card[r].forEach(val => { if (val !== 'FREE') winningBallsSet.add(val); });
             }
         }
-        if (hasLine) matchedPatterns.push('Línea (Horizontal/Vertical)');
+        // Verticales
+        for (let c = 0; c < 5; c++) {
+            if (grid.every(row => row[c])) {
+                matchedPatterns.push('Línea Vertical');
+                for (let r = 0; r < 5; r++) {
+                    if (card[r][c] !== 'FREE') winningBallsSet.add(card[r][c]);
+                }
+            }
+        }
     }
 
     if (activeModes.includes('diagonal')) {
         const diag1 = [0, 1, 2, 3, 4].every(i => grid[i][i]);
         const diag2 = [0, 1, 2, 3, 4].every(i => grid[i][4 - i]);
-        if (diag1 || diag2) matchedPatterns.push('Diagonal');
+        
+        if (diag1) {
+            matchedPatterns.push('Diagonal ↘');
+            [0, 1, 2, 3, 4].forEach(i => { if (card[i][i] !== 'FREE') winningBallsSet.add(card[i][i]); });
+        }
+        if (diag2) {
+            matchedPatterns.push('Diagonal ↙');
+            [0, 1, 2, 3, 4].forEach(i => { if (card[i][4 - i] !== 'FREE') winningBallsSet.add(card[i][4 - i]); });
+        }
     }
 
     if (activeModes.includes('corners')) {
         if (grid[0][0] && grid[0][4] && grid[4][0] && grid[4][4]) {
             matchedPatterns.push('4 Esquinas');
+            [card[0][0], card[0][4], card[4][0], card[4][4]].forEach(val => {
+                if (val !== 'FREE') winningBallsSet.add(val);
+            });
         }
     }
 
     if (activeModes.includes('full')) {
         if (grid.every(row => row.every(Boolean))) {
-            matchedPatterns.push('Cartón Lleno (Blackout)');
+            matchedPatterns.push('Cartón Lleno');
+            card.forEach(row => row.forEach(val => { if (val !== 'FREE') winningBallsSet.add(val); }));
         }
     }
 
+    const formattedWinningBalls = Array.from(winningBallsSet).map(num => `${getBingoLetter(num)}${num}`);
+
     return {
         isWinner: matchedPatterns.length > 0,
-        matchedPatterns: matchedPatterns
+        matchedPatterns: matchedPatterns,
+        winningBalls: formattedWinningBalls
     };
 }
 
