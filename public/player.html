@@ -8,8 +8,8 @@
         :root { --bg: #0f172a; --card: #1e293b; --accent: #2563eb; --marked: #16a34a; --text: #ffffff; }
         body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         .join-box { background: var(--card); padding: 20px; border-radius: 10px; width: 100%; max-width: 360px; text-align: center; }
-        input, select, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; }
-        button { background: var(--accent); border: none; font-weight: bold; cursor: pointer; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; text-transform: uppercase; }
+        button { background: var(--accent); border: none; font-weight: bold; cursor: pointer; text-transform: none; }
         
         .last-ball-bar { background: #334155; width: 100%; max-width: 360px; text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; }
         .last-ball-num { font-size: 1.8rem; color: #60a5fa; margin-left: 8px; }
@@ -33,9 +33,9 @@
     </div>
 
     <div class="join-box" id="joinBox">
-        <input type="text" id="roomCode" placeholder="Código de Sala (Ej: BINGO1)">
-        <input type="text" id="username" placeholder="Tu Nombre o @usuario_tiktok">
-        <select id="cardsCount">
+        <input type="text" id="roomCode" placeholder="CÓDIGO DE SALA (EJ: X7K9P2)">
+        <input type="text" id="username" placeholder="Tu Nombre o @usuario_tiktok" style="text-transform: none;">
+        <select id="cardsCount" style="text-transform: none;">
             <option value="1">1 Cartón</option>
             <option value="2">2 Cartones</option>
             <option value="3">3 Cartones</option>
@@ -72,7 +72,7 @@
             document.getElementById('cardsContainer').innerHTML = '';
             document.getElementById('joinBox').style.display = 'block';
             document.getElementById('lastBallDisplay').innerText = '--';
-            alert('La partida ha sido reiniciada.');
+            alert('La sala se ha cerrado o reiniciado. Ingresa el nuevo código para volver a jugar.');
         });
 
         function joinGame() {

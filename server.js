@@ -12,10 +12,19 @@ const io = new Server(server, {
 app.use(express.static('public'));
 
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "admin123";
-const ROOM_CODE = process.env.ROOM_CODE || "BINGO1";
+
+// Función para generar un código de sala aleatorio único
+function generateRoomCode(length = 6) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluye caracteres ambiguos
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
 
 let gameState = {
-    roomCode: ROOM_CODE,
+    roomCode: generateRoomCode(),
     drawnNumbers: [],
     lastDrawnNumber: null,
     players: {},
@@ -27,19 +36,24 @@ let gameState = {
 let tiktokLiveConnection = null;
 
 io.on('connection', (socket) => {
-    // Enviar estado actual al conectarse
-    socket.emit('gameStateUpdate', {
-        ...gameState,
-        roomCode: gameState.roomCode
-    });
+    socket.emit('gameStateUpdate', gameState);
 
     // Validar contraseña del Host
     socket.on('authHost', (password, callback) => {
         if (password === HOST_PASSWORD) {
-            callback({ success: true });
+            callback({ success: true, roomCode: gameState.roomCode });
         } else {
             callback({ success: false, message: 'Contraseña incorrecta' });
         }
+    });
+
+    // Cambiar / Regenerar Código de Sala (Host)
+    socket.on('regenerateRoomCode', ({ password }, callback) => {
+        if (password !== HOST_PASSWORD) return;
+        gameState.roomCode = generateRoomCode();
+        gameState.players = {}; // Limpia jugadores de la sala anterior
+        io.emit('gameStateUpdate', gameState);
+        if (callback) callback({ success: true, roomCode: gameState.roomCode });
     });
 
     // Actualizar Modos de Victoria (Host)
@@ -75,19 +89,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Reiniciar Juego (Host)
+    // Reiniciar Juego y Generar Nueva Sala (Host)
     socket.on('resetGame', ({ password }) => {
         if (password !== HOST_PASSWORD) return;
         gameState.drawnNumbers = [];
         gameState.lastDrawnNumber = null;
+        gameState.roomCode = generateRoomCode();
+        gameState.players = {};
         io.emit('gameReset');
         io.emit('gameStateUpdate', gameState);
     });
 
     // Unirse a la Sala (Jugador)
     socket.on('joinGame', ({ roomCode, username, cardsCount }, callback) => {
-        if ((roomCode || '').trim().toUpperCase() !== gameState.roomCode.toUpperCase()) {
-            return callback({ success: false, message: 'Código de sala incorrecto' });
+        const cleanRoomInput = (roomCode || '').trim().toUpperCase();
+        if (cleanRoomInput !== gameState.roomCode) {
+            return callback({ success: false, message: 'Código de sala inválido o expirado.' });
         }
 
         const count = Math.min(Math.max(parseInt(cardsCount) || 1, 1), 3);
@@ -179,7 +196,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Generar Cartón
 function generateBingoCard() {
     const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
     const card = Array(5).fill(null).map(() => Array(5).fill(null));
@@ -199,7 +215,6 @@ function generateBingoCard() {
     return card;
 }
 
-// Validación Estricta de Patrones de Victoria
 function checkBingoWinner(card, drawnNumbers, activeModes) {
     const drawnSet = new Set(drawnNumbers.map(Number));
 
@@ -209,14 +224,11 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
 
     const matchedPatterns = [];
 
-    // 1. Línea Horizontal / Vertical
     if (activeModes.includes('line')) {
         let hasLine = false;
-        // Horizontales
         for (let r = 0; r < 5; r++) {
             if (grid[r].every(Boolean)) { hasLine = true; break; }
         }
-        // Verticales
         if (!hasLine) {
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c])) { hasLine = true; break; }
@@ -225,21 +237,18 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
         if (hasLine) matchedPatterns.push('Línea (Horizontal/Vertical)');
     }
 
-    // 2. Diagonales
     if (activeModes.includes('diagonal')) {
         const diag1 = [0, 1, 2, 3, 4].every(i => grid[i][i]);
         const diag2 = [0, 1, 2, 3, 4].every(i => grid[i][4 - i]);
         if (diag1 || diag2) matchedPatterns.push('Diagonal');
     }
 
-    // 3. 4 Esquinas
     if (activeModes.includes('corners')) {
         if (grid[0][0] && grid[0][4] && grid[4][0] && grid[4][4]) {
             matchedPatterns.push('4 Esquinas');
         }
     }
 
-    // 4. Cartón Lleno (Blackout)
     if (activeModes.includes('full')) {
         if (grid.every(row => row.every(Boolean))) {
             matchedPatterns.push('Cartón Lleno (Blackout)');
@@ -253,4 +262,4 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor de Bingo iniciado en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor de Bingo activo en puerto ${PORT}`));
