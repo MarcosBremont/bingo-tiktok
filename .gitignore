@@ -1,0 +1,10 @@
+# Dependencias
+node_modules/
+
+# Entorno y variables secretas
+.env
+*.log
+
+# Archivos de sistema / editores
+.DS_Store
+.vscode/
