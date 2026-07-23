@@ -22,11 +22,16 @@
         .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; user-select: none; font-size: 1.1rem; cursor: pointer; }
         .cell.free { background: var(--accent); font-size: 0.7rem; }
         .cell.marked { background: #22c55e !important; color: white; }
+        .cell.valid-match { background: #22c55e !important; color: white; border: 2px solid #fff; font-weight: bold; }
         
         .last-ball { font-size: 1.3rem; color: var(--cyan); margin-top: 5px; font-weight: bold; }
         .btn-bingo { background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%; }
 
-        #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; width: 90%; max-width: 1100px; text-align: center; }
+        /* Panel de Alerta para Verificación de Bingo */
+        #alertBox { display: none; background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; width: 95%; max-width: 450px; text-align: center; border: 3px solid #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.4); }
+        #alertBox h2 { color: #22c55e; margin-top: 0; }
+        .verify-card { max-width: 300px; margin: 15px auto; }
+        .close-alert-btn { background: #ef4444; margin-top: 15px; padding: 8px 18px; font-size: 0.9rem; }
 
         footer { margin-top: 25px; font-size: 0.95rem; color: #94a3b8; text-align: center; }
         footer b { color: var(--cyan); letter-spacing: 0.5px; }
@@ -34,7 +39,14 @@
 </head>
 <body>
 
-    <div id="alertBox"></div>
+    <!-- Cuadro de Alerta y Verificación de Bingo -->
+    <div id="alertBox">
+        <h2 id="alertTitle">🎉 ¡ALGUIEN CANTÓ BINGO!</h2>
+        <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 10px;"></div>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">Números salidos resaltados en verde:</p>
+        <div id="verifyCardContainer" class="verify-card"></div>
+        <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación ❌</button>
+    </div>
 
     <div class="login-box" id="loginBox">
         <h2>Unirse al Bingo 🇩🇴</h2>
@@ -134,15 +146,47 @@
             });
         }
 
+        function claimBingo(cardIndex) {
+            socket.emit('claimBingo', { roomId: myRoom, username: myUser, cardIndex });
+        }
+
         socket.on('newBall', ({ ball }) => {
             let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
             document.getElementById('lastBall').innerText = `${letter}${ball}`;
         });
 
-        socket.on('bingoClaimed', ({ username, cardIndex }) => {
-            const alert = document.getElementById('alertBox');
-            alert.innerText = ` ¡${username} HA CANTADO BINGO EN EL CARTÓN #${cardIndex + 1}! `;
-            alert.style.display = 'block';
+        socket.on('bingoClaimed', ({ username, cardIndex, card, drawnNumbers }) => {
+            const alertBox = document.getElementById('alertBox');
+            document.getElementById('alertTitle').innerText = `🎉 ¡${username.toUpperCase()} CANTÓ BINGO!`;
+            document.getElementById('alertSubtitle').innerText = `Verificando Cartón #${cardIndex + 1}:`;
+
+            const container = document.getElementById('verifyCardContainer');
+            container.innerHTML = '';
+
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            grid.innerHTML = '<div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>';
+
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const val = card[r][c];
+
+                    if (val === 'LIBRE') {
+                        cell.classList.add('free', 'valid-match');
+                        cell.innerText = '★ LIBRE';
+                    } else {
+                        cell.innerText = val;
+                        if (drawnNumbers.includes(val)) {
+                            cell.classList.add('valid-match');
+                        }
+                    }
+                    grid.appendChild(cell);
+                }
+            }
+            container.appendChild(grid);
+            alertBox.style.display = 'block';
         });
 
         socket.on('gameResetPlayer', ({ cards }) => {
