@@ -13,9 +13,8 @@ app.use(express.static('public'));
 
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "admin123";
 
-// Función para generar un código de sala aleatorio único
 function generateRoomCode(length = 6) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluye caracteres ambiguos
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let result = '';
     for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -23,10 +22,20 @@ function generateRoomCode(length = 6) {
     return result;
 }
 
+// Función auxiliar para obtener la letra del Bingo
+function getBingoLetter(num) {
+    if (num >= 1 && num <= 15) return 'B';
+    if (num >= 16 && num <= 30) return 'I';
+    if (num >= 31 && num <= 45) return 'N';
+    if (num >= 46 && num <= 60) return 'G';
+    if (num >= 61 && num <= 75) return 'O';
+    return '';
+}
+
 let gameState = {
     roomCode: generateRoomCode(),
     drawnNumbers: [],
-    lastDrawnNumber: null,
+    lastDrawnBall: null, // Guardará un objeto { number: 4, formatted: 'B4' }
     players: {},
     winModes: ['line', 'diagonal', 'corners', 'full'],
     tikTokUsername: '',
@@ -38,7 +47,6 @@ let tiktokLiveConnection = null;
 io.on('connection', (socket) => {
     socket.emit('gameStateUpdate', gameState);
 
-    // Validar contraseña del Host
     socket.on('authHost', (password, callback) => {
         if (password === HOST_PASSWORD) {
             callback({ success: true, roomCode: gameState.roomCode });
@@ -47,16 +55,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Cambiar / Regenerar Código de Sala (Host)
     socket.on('regenerateRoomCode', ({ password }, callback) => {
         if (password !== HOST_PASSWORD) return;
         gameState.roomCode = generateRoomCode();
-        gameState.players = {}; // Limpia jugadores de la sala anterior
+        gameState.players = {};
         io.emit('gameStateUpdate', gameState);
         if (callback) callback({ success: true, roomCode: gameState.roomCode });
     });
 
-    // Actualizar Modos de Victoria (Host)
     socket.on('updateWinModes', ({ password, modes }) => {
         if (password !== HOST_PASSWORD) return;
         if (Array.isArray(modes)) {
@@ -65,7 +71,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Sacar Balota Aleatoria (Host)
+    // Sacar Balota Aleatoria con Letra + Número
     socket.on('drawRandomNumber', ({ password }) => {
         if (password !== HOST_PASSWORD) return;
 
@@ -79,28 +85,33 @@ io.on('connection', (socket) => {
         if (available.length > 0) {
             const randomIndex = Math.floor(Math.random() * available.length);
             const num = available[randomIndex];
+            const ballData = {
+                number: num,
+                letter: getBingoLetter(num),
+                formatted: `${getBingoLetter(num)}${num}`
+            };
+
             gameState.drawnNumbers.push(num);
-            gameState.lastDrawnNumber = num;
+            gameState.lastDrawnBall = ballData;
 
             io.emit('numberDrawn', {
-                number: num,
+                ball: ballData,
                 drawnNumbers: gameState.drawnNumbers
             });
         }
     });
 
-    // Reiniciar Juego y Generar Nueva Sala (Host)
     socket.on('resetGame', ({ password }) => {
         if (password !== HOST_PASSWORD) return;
         gameState.drawnNumbers = [];
-        gameState.lastDrawnNumber = null;
+        gameState.lastDrawnBall = null;
         gameState.roomCode = generateRoomCode();
         gameState.players = {};
         io.emit('gameReset');
         io.emit('gameStateUpdate', gameState);
     });
 
-    // Unirse a la Sala (Jugador)
+    // Registrar o Generar Cartones (Aplica para Jugadores y Anfitrión)
     socket.on('joinGame', ({ roomCode, username, cardsCount }, callback) => {
         const cleanRoomInput = (roomCode || '').trim().toUpperCase();
         if (cleanRoomInput !== gameState.roomCode) {
@@ -123,7 +134,6 @@ io.on('connection', (socket) => {
         io.emit('playersUpdated', Object.values(gameState.players));
     });
 
-    // Reclamar Bingo (Jugador)
     socket.on('claimBingo', ({ cardIndex }) => {
         const player = gameState.players[socket.id];
         if (!player || !player.cards[cardIndex]) return;
@@ -145,7 +155,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Conectar TikTok Live (Host)
     socket.on('connectTikTok', ({ password, uniqueId }) => {
         if (password !== HOST_PASSWORD) return;
         if (!uniqueId) return;

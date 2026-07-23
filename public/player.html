@@ -51,13 +51,13 @@
         let myCards = [];
 
         socket.on('gameStateUpdate', (state) => {
-            if (state.lastDrawnNumber) {
-                document.getElementById('lastBallDisplay').innerText = state.lastDrawnNumber;
+            if (state.lastDrawnBall) {
+                document.getElementById('lastBallDisplay').innerText = state.lastDrawnBall.formatted;
             }
         });
 
-        socket.on('numberDrawn', ({ number }) => {
-            document.getElementById('lastBallDisplay').innerText = number;
+        socket.on('numberDrawn', ({ ball }) => {
+            document.getElementById('lastBallDisplay').innerText = ball.formatted;
         });
 
         socket.on('bingoRejected', ({ reason }) => {
