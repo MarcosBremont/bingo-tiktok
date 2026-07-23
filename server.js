@@ -5,201 +5,230 @@ const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 app.use(express.static('public'));
 
-// Estado global de las salas
-const rooms = {};
+// Estado del juego en memoria
+let gameState = {
+    drawnNumbers: [],
+    players: {}, // socketId -> { id, username, cards: [] }
+    winModes: ['line', 'diagonal', 'corners', 'full'], // Modos activos por defecto
+    tikTokUsername: '',
+    isConnectedTikTok: false
+};
 
-// Instancia global para TikTok Live
 let tiktokLiveConnection = null;
 
 io.on('connection', (socket) => {
+    console.log(`Cliente conectado: ${socket.id}`);
 
-    // 1. Crear Sala (Anfitrión)
-    socket.on('createRoom', ({ password, hostPlay, cardCount, gamePattern }) => {
-        const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-        
-        rooms[roomId] = {
-            password,
-            drawnNumbers: [],
-            totalBalls: 75,
-            gamePattern: gamePattern || 'FULL',
-            winnersHistory: [],
-            players: {},
-            hostCards: hostPlay ? generateCards(cardCount) : []
+    // Enviar estado inicial al conectar
+    socket.emit('gameStateUpdate', gameState);
+
+    // Configurar Modos de Victoria (Host)
+    socket.on('updateWinModes', (modes) => {
+        if (Array.isArray(modes)) {
+            gameState.winModes = modes;
+            io.emit('winModesUpdated', gameState.winModes);
+            console.log('Modos de victoria actualizados:', gameState.winModes);
+        }
+    });
+
+    // Iniciar / Reiniciar Juego (Host)
+    socket.on('resetGame', () => {
+        gameState.drawnNumbers = [];
+        io.emit('gameReset');
+        io.emit('gameStateUpdate', gameState);
+        console.log('Juego reiniciado');
+    });
+
+    // Cantar número (Host)
+    socket.on('drawNumber', (number) => {
+        const num = parseInt(number);
+        if (!isNaN(num) && num >= 1 && num <= 75 && !gameState.drawnNumbers.includes(num)) {
+            gameState.drawnNumbers.push(num);
+            io.emit('numberDrawn', { number: num, drawnNumbers: gameState.drawnNumbers });
+        }
+    });
+
+    // Unirse como jugador
+    socket.on('joinGame', ({ username, cardsCount }) => {
+        const count = Math.min(Math.max(parseInt(cardsCount) || 1, 1), 3);
+        const cards = [];
+        for (let i = 0; i < count; i++) {
+            cards.push(generateBingoCard());
+        }
+
+        gameState.players[socket.id] = {
+            id: socket.id,
+            username: username || `Jugador_${socket.id.substring(0, 4)}`,
+            cards: cards
         };
 
-        socket.join(roomId);
-        socket.emit('roomCreated', { 
-            roomId, 
-            cards: rooms[roomId].hostCards,
-            gamePattern: rooms[roomId].gamePattern
-        });
+        socket.emit('yourCards', cards);
+        io.emit('playersUpdated', Object.values(gameState.players));
     });
 
-    // 2. Unirse a la Sala (Jugador / Overlay)
-    socket.on('joinRoom', ({ roomId, username, cardCount }) => {
-        const room = rooms[roomId];
-        if (!room) return socket.emit('errorMsg', 'La sala no existe.');
+    // Cantar Bingo (Validación estricta con Modos Combinados)
+    socket.on('claimBingo', ({ cardIndex }) => {
+        const player = gameState.players[socket.id];
+        if (!player || !player.cards[cardIndex]) return;
 
-        socket.join(roomId);
+        const card = player.cards[cardIndex];
+        const validation = checkBingoWinner(card, gameState.drawnNumbers, gameState.winModes);
 
-        // Si no es la captura de OBS, registrarlo como jugador activo
-        if (username !== 'Overlay_OBS') {
-            const cards = generateCards(cardCount || 1);
-            room.players[socket.id] = { username, cards };
-            
-            socket.emit('joinedSuccess', { 
-                roomId, 
-                cards, 
-                history: room.drawnNumbers,
-                gamePattern: room.gamePattern
+        if (validation.isWinner) {
+            io.emit('bingoWinner', {
+                username: player.username,
+                socketId: socket.id,
+                cardIndex: cardIndex,
+                patterns: validation.matchedPatterns
             });
-
-            io.to(roomId).emit('updatePlayersList', { 
-                players: Object.values(room.players).map(p => p.username) 
-            });
+            console.log(`¡BINGO VÁLIDO! ${player.username} ganó con patrones: ${validation.matchedPatterns.join(', ')}`);
+        } else {
+            socket.emit('bingoRejected', { reason: 'Tu cartón aún no cumple con ninguno de los modos de victoria activos.' });
         }
     });
 
-    // 3. Cambiar Patrón de Juego
-    socket.on('changePattern', ({ roomId, pattern }) => {
-        if (rooms[roomId]) {
-            rooms[roomId].gamePattern = pattern;
-            io.to(roomId).emit('patternUpdated', { pattern });
-        }
-    });
+    // Conectar a TikTok Live
+    socket.on('connectTikTok', (uniqueId) => {
+        if (!uniqueId) return;
 
-    // 4. Sacar Balota
-    socket.on('drawBall', ({ roomId }) => {
-        const room = rooms[roomId];
-        if (!room) return;
-
-        if (room.drawnNumbers.length >= room.totalBalls) {
-            return socket.emit('errorMsg', 'Ya salieron todas las balotas (75/75).');
-        }
-
-        let nextBall;
-        do {
-            nextBall = Math.floor(Math.random() * 75) + 1;
-        } while (room.drawnNumbers.includes(nextBall));
-
-        room.drawnNumbers.push(nextBall);
-
-        io.to(roomId).emit('newBall', { 
-            ball: nextBall, 
-            history: room.drawnNumbers,
-            remaining: room.totalBalls - room.drawnNumbers.length
-        });
-    });
-
-    // 5. Verificación y Canto de Bingo
-    socket.on('claimBingo', ({ roomId, username, cardIndex, markedNumbers }) => {
-        const room = rooms[roomId];
-        if (!room) return;
-
-        let playerCard;
-        if (username.includes('Anfitrión')) {
-            playerCard = room.hostCards[cardIndex];
-        } else if (room.players[socket.id]) {
-            playerCard = room.players[socket.id].cards[cardIndex];
-        }
-
-        if (!playerCard) return;
-
-        // Comprobar si hubo números marcados que NO habían salido
-        const badNumbers = markedNumbers.filter(n => !room.drawnNumbers.includes(n));
-        const isValid = badNumbers.length === 0 && markedNumbers.length > 0;
-
-        if (isValid) {
-            const winnerEntry = {
-                username,
-                pattern: room.gamePattern,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            room.winnersHistory.unshift(winnerEntry);
-            io.to(roomId).emit('updateWinners', { history: room.winnersHistory });
-        }
-
-        io.to(roomId).emit('bingoClaimed', {
-            username,
-            cardIndex,
-            card: playerCard,
-            markedNumbers,
-            drawnNumbers: room.drawnNumbers
-        });
-    });
-
-    // 6. Conexión con TikTok Live
-    socket.on('connectTikTok', ({ tiktokUsername, roomId }) => {
         if (tiktokLiveConnection) {
             try { tiktokLiveConnection.disconnect(); } catch (e) {}
         }
 
-        tiktokLiveConnection = new WebcastPushConnection(tiktokUsername);
+        tiktokLiveConnection = new WebcastPushConnection(uniqueId);
 
         tiktokLiveConnection.connect().then(state => {
-            socket.emit('tiktokConnected', { status: true });
+            gameState.tikTokUsername = uniqueId;
+            gameState.isConnectedTikTok = true;
+            io.emit('tikTokStatus', { connected: true, username: uniqueId });
+            console.log(`Conectado a TikTok Live: ${uniqueId}`);
         }).catch(err => {
-            socket.emit('tiktokConnected', { status: false, error: err.message });
+            gameState.isConnectedTikTok = false;
+            socket.emit('tikTokStatus', { connected: false, error: err.toString() });
+            console.error('Error al conectar con TikTok:', err);
         });
 
+        // Escuchar comentarios de TikTok para unirse automáticamente o cantar bingo
         tiktokLiveConnection.on('chat', data => {
-            io.to(roomId).emit('tiktokChatMessage', {
-                user: data.uniqueId,
-                comment: data.comment
-            });
+            io.emit('tikTokChat', { nickname: data.nickname, comment: data.comment });
+            
+            const comment = data.comment.trim().toLowerCase();
+            if (comment === '!bingo') {
+                const playerSocketId = Object.keys(gameState.players).find(
+                    id => gameState.players[id].username.toLowerCase() === data.nickname.toLowerCase()
+                );
+                if (playerSocketId) {
+                    const player = gameState.players[playerSocketId];
+                    player.cards.forEach((card, index) => {
+                        const val = checkBingoWinner(card, gameState.drawnNumbers, gameState.winModes);
+                        if (val.isWinner) {
+                            io.emit('bingoWinner', {
+                                username: player.username,
+                                socketId: playerSocketId,
+                                cardIndex: index,
+                                patterns: val.matchedPatterns
+                            });
+                        }
+                    });
+                }
+            }
         });
     });
 
-    // 7. Reiniciar Partida
-    socket.on('resetGame', ({ roomId }) => {
-        const room = rooms[roomId];
-        if (!room) return;
-
-        room.drawnNumbers = [];
-        if (room.hostCards.length > 0) {
-            room.hostCards = generateCards(room.hostCards.length);
-        }
-
-        Object.keys(room.players).forEach(id => {
-            const count = room.players[id].cards.length;
-            room.players[id].cards = generateCards(count);
-            io.to(id).emit('gameResetPlayer', { cards: room.players[id].cards });
-        });
-
-        io.to(roomId).emit('gameResetHost', { cards: room.hostCards });
+    socket.on('disconnect', () => {
+        delete gameState.players[socket.id];
+        io.emit('playersUpdated', Object.values(gameState.players));
+        console.log(`Cliente desconectado: ${socket.id}`);
     });
 });
 
-// Función Auxiliar: Generar Cartones
-function generateCards(count) {
-    const cards = [];
-    for (let i = 0; i < count; i++) {
-        cards.push([
-            getCol(1, 15),
-            getCol(16, 30),
-            getCol(31, 45, true),
-            getCol(46, 60),
-            getCol(61, 75)
-        ]);
+// --- FUNCIONES AUXILIARES DE BINGO ---
+
+function generateBingoCard() {
+    const ranges = [
+        [1, 15],   // B
+        [16, 30],  // I
+        [31, 45],  // N
+        [46, 60],  // G
+        [61, 75]   // O
+    ];
+
+    const card = Array(5).fill(null).map(() => Array(5).fill(null));
+
+    for (let col = 0; col < 5; col++) {
+        const [min, max] = ranges[col];
+        const nums = new Set();
+        while (nums.size < 5) {
+            nums.add(Math.floor(Math.random() * (max - min + 1)) + min);
+        }
+        const colArray = Array.from(nums);
+        for (let row = 0; row < 5; row++) {
+            card[row][col] = colArray[row];
+        }
     }
-    return cards;
+
+    card[2][2] = 'FREE'; // Casilla central libre
+    return card;
 }
 
-function getCol(min, max, isMiddle = false) {
-    const nums = [];
-    while (nums.length < 5) {
-        let n = Math.floor(Math.random() * (max - min + 1)) + min;
-        if (!nums.includes(n)) nums.push(n);
+function checkBingoWinner(card, drawnNumbers, activeModes) {
+    const grid = card.map(row =>
+        row.map(cell => cell === 'FREE' || drawnNumbers.includes(cell))
+    );
+
+    const matchedPatterns = [];
+
+    // 1. Línea Horizontal / Vertical
+    if (activeModes.includes('line')) {
+        let hasLine = false;
+        for (let r = 0; r < 5; r++) {
+            if (grid[r].every(val => val)) { hasLine = true; break; }
+        }
+        if (!hasLine) {
+            for (let c = 0; c < 5; c++) {
+                if (grid.every(row => row[c])) { hasLine = true; break; }
+            }
+        }
+        if (hasLine) matchedPatterns.push('Línea (Horizontal/Vertical)');
     }
-    if (isMiddle) nums[2] = 'LIBRE';
-    return nums;
+
+    // 2. Diagonales
+    if (activeModes.includes('diagonal')) {
+        const diag1 = [0, 1, 2, 3, 4].every(i => grid[i][i]);
+        const diag2 = [0, 1, 2, 3, 4].every(i => grid[i][4 - i]);
+        if (diag1 || diag2) {
+            matchedPatterns.push('Diagonal');
+        }
+    }
+
+    // 3. 4 Esquinas
+    if (activeModes.includes('corners')) {
+        const corners = grid[0][0] && grid[0][4] && grid[4][0] && grid[4][4];
+        if (corners) matchedPatterns.push('4 Esquinas');
+    }
+
+    // 4. Cartón Lleno (Blackout)
+    if (activeModes.includes('full')) {
+        const full = grid.every(row => row.every(val => val));
+        if (full) matchedPatterns.push('Cartón Lleno (Blackout)');
+    }
+
+    return {
+        isWinner: matchedPatterns.length > 0,
+        matchedPatterns: matchedPatterns
+    };
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Servidor de Bingo activo en http://localhost:${PORT}`);
+    console.log(`Servidor de Bingo TikTok corriendo en el puerto ${PORT}`);
 });

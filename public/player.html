@@ -3,255 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jugador - Bingo TikTok</title>
+    <title>Mi Cartón de Bingo</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --cyan: #00f2fe; --accent: #ff0050; --text: #fff; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 95vh; justify-content: space-between; }
-        
-        .login-box { background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        input, select { width: 85%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 1rem; text-align: center; background: #334155; color: white; }
-        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 20px; cursor: pointer; margin-top: 10px; width: 90%; }
-        
-        .game-wrapper { width: 100%; max-width: 1150px; display: flex; flex-direction: column; align-items: center; }
-        .header-info { background: var(--card); padding: 15px 25px; border-radius: 12px; text-align: center; margin-bottom: 20px; width: 100%; max-width: 400px; }
-        
-        .card-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; }
-        .single-card-box { background: var(--card); padding: 15px; border-radius: 12px; flex: 1 1 300px; max-width: 340px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; background: #0f172a; padding: 10px; border-radius: 8px; margin-top: 8px; }
-        .cell-head { font-weight: bold; color: var(--cyan); padding: 5px 0; font-size: 1.1rem; text-align: center; }
-        .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; user-select: none; font-size: 1.1rem; cursor: pointer; }
-        .cell.free { background: var(--accent); font-size: 0.7rem; }
-        .cell.marked { background: #22c55e !important; color: white; }
-        
-        .cell.valid-match { background: #22c55e !important; color: white; border: 2px solid #fff; font-weight: bold; }
-        .cell.bad-match { background: #ef4444 !important; color: white; border: 2px solid #ff9999; font-weight: bold; }
-
-        .last-ball { font-size: 1.3rem; color: var(--cyan); margin-top: 5px; font-weight: bold; }
-        .btn-bingo { background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%; }
-
-        #alertBox { display: none; background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; width: 95%; max-width: 480px; text-align: center; border: 3px solid #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.4); }
-        #alertBox.has-error { border-color: #ef4444; box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
-        #alertBox h2 { color: #22c55e; margin-top: 0; }
-        #alertBox.has-error h2 { color: #ef4444; }
-        .legend { display: flex; justify-content: center; gap: 15px; font-size: 0.8rem; margin: 10px 0; }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-        .verify-card { max-width: 320px; margin: 10px auto; }
-        .close-alert-btn { background: #ef4444; margin-top: 15px; padding: 8px 18px; font-size: 0.9rem; }
-
-        footer { margin-top: 25px; font-size: 0.95rem; color: #94a3b8; text-align: center; }
-        footer b { color: var(--cyan); letter-spacing: 0.5px; }
+        :root { --bg: #0f172a; --card-bg: #1e293b; --accent: #2563eb; --marked: #16a34a; --text: #ffffff; }
+        body { background-color: var(--bg); color: var(--text); font-family: sans-serif; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        h1 { margin-bottom: 10px; color: #60a5fa; }
+        .join-box { background: var(--card-bg); padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; text-align: center; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; }
+        button { background: var(--accent); border: none; font-weight: bold; cursor: pointer; }
+        .cards-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; margin-top: 20px; }
+        .bingo-card { background: var(--card-bg); padding: 15px; border-radius: 12px; width: 320px; }
+        .card-header { display: grid; grid-template-columns: repeat(5, 1fr); text-align: center; font-weight: bold; color: #f59e0b; margin-bottom: 8px; }
+        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+        .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #334155; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .cell.marked { background: var(--marked); box-shadow: 0 0 8px rgba(22, 163, 74, 0.8); }
+        .cell.free { background: #d97706; font-size: 0.8rem; }
+        .bingo-btn { background: #dc2626; margin-top: 12px; padding: 12px; }
     </style>
 </head>
 <body>
 
-    <!-- Ventana Modal de Verificación -->
-    <div id="alertBox">
-        <h2 id="alertTitle">🎉 ¡ALGUIEN CANTÓ BINGO!</h2>
-        <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 5px;"></div>
-        
-        <div class="legend">
-            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido</div>
-            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto</div>
-        </div>
+    <h1>🎟️ Mi Cartón de Bingo</h1>
 
-        <div id="verifyCardContainer" class="verify-card"></div>
-        <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación ❌</button>
-    </div>
-
-    <!-- Login Jugador -->
-    <div class="login-box" id="loginBox">
-        <h2>Unirse al Bingo 🇩🇴</h2>
-        <input type="text" id="roomId" placeholder="Código de Sala (ej. 4821)">
-        <input type="text" id="username" placeholder="Tu @usuario de TikTok">
-        
-        <label style="display:block; margin-top: 10px; font-size: 0.9rem;">¿Cuántos cartones deseas?</label>
-        <select id="cardCount">
+    <div class="join-box" id="joinBox">
+        <input type="text" id="username" placeholder="Tu Nombre o @usuario_tiktok">
+        <select id="cardsCount">
             <option value="1">1 Cartón</option>
             <option value="2">2 Cartones</option>
             <option value="3">3 Cartones</option>
         </select>
-
-        <button onclick="joinGame()">Entrar a Jugar</button>
+        <button onclick="joinGame()">Entrar a la Partida</button>
     </div>
 
-    <!-- Tablero del Jugador -->
-    <div class="game-wrapper" id="gameBox" style="display:none;">
-        <div class="header-info">
-            <h3 id="playerTitle" style="margin: 0;"></h3>
-            <div class="last-ball">Última Balota: <span id="lastBall" style="color:var(--accent)">--</span></div>
-        </div>
-        
-        <div class="card-container" id="cardsContainer"></div>
-    </div>
-
-    <footer>
-        Desarrollado por <b>Marcos Bremont</b> &copy; 2026
-    </footer>
+    <div class="cards-container" id="cardsContainer"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myRoom = null;
-        let myUser = null;
-
-        // Cargar audios
-        const audioClick = new Audio('/click.mp3');
-        const audioBingo = new Audio('/bingo.mp3');
-        const audioFail = new Audio('/gameover.mp3');
-
-        function playSound(audio) {
-            audio.currentTime = 0;
-            audio.play().catch(e => console.log('Audio autoplay bloqueado por navegador:', e));
-        }
+        let myCards = [];
 
         function joinGame() {
-            myRoom = document.getElementById('roomId').value.trim();
-            myUser = document.getElementById('username').value.trim();
-            const cardCount = document.getElementById('cardCount').value;
-
-            if (!myRoom || !myUser) return alert('Completa todos los campos.');
-            socket.emit('joinRoom', { roomId: myRoom, username: myUser, cardCount });
+            const username = document.getElementById('username').value.trim();
+            const cardsCount = document.getElementById('cardsCount').value;
+            if (username) {
+                socket.emit('joinGame', { username, cardsCount });
+                document.getElementById('joinBox').style.display = 'none';
+            }
         }
 
-        socket.on('joinedSuccess', ({ roomId, cards, history }) => {
-            document.getElementById('loginBox').style.display = 'none';
-            document.getElementById('gameBox').style.display = 'flex';
-            document.getElementById('playerTitle').innerText = `Jugador: ${myUser}`;
-
-            renderPlayerCards(cards);
-
-            if(history.length > 0) {
-                let last = history[history.length - 1];
-                let l = last <= 15 ? 'B' : last <= 30 ? 'I' : last <= 45 ? 'N' : last <= 60 ? 'G' : 'O';
-                document.getElementById('lastBall').innerText = `${l}${last}`;
-            }
+        socket.on('yourCards', (cards) => { myCards = cards; renderCards(); });
+        socket.on('bingoRejected', ({ reason }) => { alert(`⚠️ BINGO NO VÁLIDO: ${reason}`); });
+        socket.on('bingoWinner', ({ username, cardIndex, patterns }) => {
+            alert(`🎉 ¡BINGO CONFIRMADO! ${username} ha ganado (Cartón #${cardIndex + 1}) con: ${patterns.join(', ')}`);
+        });
+        socket.on('gameReset', () => {
+            document.getElementById('cardsContainer').innerHTML = '';
+            document.getElementById('joinBox').style.display = 'block';
         });
 
-        function renderPlayerCards(cards) {
+        function renderCards() {
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
-
-            cards.forEach((card, cardIndex) => {
-                const cardBox = document.createElement('div');
-                cardBox.className = 'single-card-box';
-                cardBox.id = `player-card-${cardIndex}`;
-                cardBox.innerHTML = `<div style="text-align:center; color:var(--cyan); font-weight:bold;">Cartón #${cardIndex + 1}</div>`;
-
-                const grid = document.createElement('div');
-                grid.className = 'card-grid';
-                grid.innerHTML = '<div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>';
-
-                for (let r = 0; r < 5; r++) {
-                    for (let c = 0; c < 5; c++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'cell';
-                        const val = card[r][c];
-
-                        if (val === 'LIBRE') {
-                            cell.classList.add('free', 'marked');
-                            cell.innerText = '★ LIBRE';
-                        } else {
-                            cell.innerText = val;
-                            cell.onclick = () => cell.classList.toggle('marked');
-                        }
-                        grid.appendChild(cell);
+            myCards.forEach((card, cardIndex) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'bingo-card';
+                let html = `<div class="card-header"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div><div class="card-grid">`;
+                for (let row = 0; row < 5; row++) {
+                    for (let col = 0; col < 5; col++) {
+                        const val = card[row][col];
+                        const isFree = val === 'FREE';
+                        html += `<div class="${isFree ? 'cell free marked' : 'cell'}" onclick="toggleMark(this)">${val}</div>`;
                     }
                 }
-
-                const btnBingo = document.createElement('button');
-                btnBingo.className = 'btn-bingo';
-                btnBingo.innerText = ` ¡BINGO (Cartón #${cardIndex + 1})! 🎉`;
-                btnBingo.onclick = () => claimBingo(cardIndex);
-
-                cardBox.appendChild(grid);
-                cardBox.appendChild(btnBingo);
-                container.appendChild(cardBox);
+                html += `</div><button class="bingo-btn" onclick="claimBingo(${cardIndex})">📢 ¡CANTAR BINGO!</button>`;
+                cardDiv.innerHTML = html;
+                container.appendChild(cardDiv);
             });
+        }
+
+        function toggleMark(cell) {
+            if (!cell.classList.contains('free')) cell.classList.toggle('marked');
         }
 
         function claimBingo(cardIndex) {
-            const cardBox = document.getElementById(`player-card-${cardIndex}`);
-            const marked = [];
-            
-            cardBox.querySelectorAll('.cell.marked').forEach(c => {
-                const text = c.innerText.replace('★ ', '');
-                if(text !== 'LIBRE') marked.push(parseInt(text));
-            });
-
-            socket.emit('claimBingo', { 
-                roomId: myRoom, 
-                username: myUser, 
-                cardIndex,
-                markedNumbers: marked
-            });
+            socket.emit('claimBingo', { cardIndex });
         }
-
-        socket.on('newBall', ({ ball }) => {
-            playSound(audioClick);
-
-            let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
-            document.getElementById('lastBall').innerText = `${letter}${ball}`;
-        });
-
-        socket.on('bingoClaimed', ({ username, cardIndex, card, markedNumbers, drawnNumbers }) => {
-            const alertBox = document.getElementById('alertBox');
-            document.getElementById('alertTitle').innerText = `🎉 ¡${username.toUpperCase()} CANTÓ BINGO!`;
-            document.getElementById('alertSubtitle').innerText = `Verificando Cartón #${cardIndex + 1}:`;
-
-            const container = document.getElementById('verifyCardContainer');
-            container.innerHTML = '';
-
-            const grid = document.createElement('div');
-            grid.className = 'card-grid';
-            grid.innerHTML = '<div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>';
-
-            let hasErrors = false;
-
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    const val = card[r][c];
-
-                    if (val === 'LIBRE') {
-                        cell.classList.add('free', 'valid-match');
-                        cell.innerText = '★ LIBRE';
-                    } else {
-                        cell.innerText = val;
-                        const isMarked = markedNumbers.includes(val);
-                        const isDrawn = drawnNumbers.includes(val);
-
-                        if (isMarked && isDrawn) {
-                            cell.classList.add('valid-match'); 
-                        } else if (isMarked && !isDrawn) {
-                            cell.classList.add('bad-match');   
-                            hasErrors = true;
-                        }
-                    }
-                    grid.appendChild(cell);
-                }
-            }
-
-            if (hasErrors) {
-                alertBox.classList.add('has-error');
-                playSound(audioFail);
-            } else {
-                alertBox.classList.remove('has-error');
-                playSound(audioBingo);
-            }
-
-            container.appendChild(grid);
-            alertBox.style.display = 'block';
-        });
-
-        socket.on('gameResetPlayer', ({ cards }) => {
-            document.getElementById('alertBox').style.display = 'none';
-            document.getElementById('lastBall').innerText = '--';
-            renderPlayerCards(cards);
-        });
-
-        socket.on('errorMsg', (msg) => alert(msg));
     </script>
 </body>
 </html>
