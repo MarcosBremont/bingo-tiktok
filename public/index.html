@@ -10,7 +10,6 @@
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* Permitir un contenedor amplio para que quepan horizontalmente */
         .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; width: 95%; max-width: 1200px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 5px 0; }
         .ball { font-size: 3.5rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; margin: 15px auto; }
@@ -21,12 +20,10 @@
         .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; max-height: 100px; overflow-y: auto; }
         .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.9rem; }
         
-        /* Lista de usuarios conectados */
         .players-section { background: #0f172a; padding: 12px; border-radius: 10px; margin: 15px 0; }
         .players-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
         .player-chip { background: var(--cyan); color: #000; font-weight: bold; padding: 5px 12px; border-radius: 15px; font-size: 0.9rem; }
 
-        /* Contenedor Horizontal para los cartones del anfitrión */
         .card-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; width: 100%; }
         .single-card-box { background: #0f172a; padding: 12px; border-radius: 10px; flex: 1 1 300px; max-width: 340px; }
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px; }
@@ -64,7 +61,6 @@
         <p>Código de la sala para seguidores:</p>
         <div class="room-code" id="displayRoom">----</div>
         
-        <!-- Lista de Jugadores Conectados -->
         <div class="players-section">
             <div>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b></div>
             <div class="players-list" id="playersList"></div>
@@ -112,7 +108,7 @@
             cards.forEach((card, index) => {
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'single-card-box';
-                cardDiv.innerHTML = `<div style="color:var(--cyan); font-weight:bold;">Cartón #${index + 1}</div>`;
+                cardDiv.innerHTML = `<div style="color:var(--cyan); font-weight:bold; margin-bottom:5px;">Cartón #${index + 1}</div>`;
                 
                 const grid = document.createElement('div');
                 grid.className = 'card-grid';
@@ -134,7 +130,16 @@
                         grid.appendChild(cell);
                     }
                 }
+
+                const btnBingo = document.createElement('button');
+                btnBingo.style.cssText = 'background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%;';
+                btnBingo.innerText = ` ¡BINGO (Cartón #${index + 1})! 🎉`;
+                btnBingo.onclick = () => {
+                    socket.emit('claimBingo', { roomId: currentRoomId, username: 'Anfitrión (Tú)', cardIndex: index });
+                };
+
                 cardDiv.appendChild(grid);
+                cardDiv.appendChild(btnBingo);
                 container.appendChild(cardDiv);
             });
         }

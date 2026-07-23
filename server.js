@@ -81,7 +81,6 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         socket.emit('joinedSuccess', { roomId, cards, history: room.drawnNumbers });
         
-        // Notificar al anfitrión con la lista de usuarios
         io.to(room.hostId).emit('updatePlayersList', { 
             players: getPlayerList(roomId)
         });
