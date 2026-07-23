@@ -7,25 +7,31 @@
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --cyan: #00f2fe; --accent: #ff0050; --text: #fff; }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .box { background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        
+        .login-box { background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         input, select { width: 85%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 1rem; text-align: center; background: #334155; color: white; }
         button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 20px; cursor: pointer; margin-top: 10px; width: 90%; }
         
-        .card-container { display: flex; flex-direction: column; gap: 20px; margin-top: 15px; }
-        .single-card-box { background: #0f172a; padding: 12px; border-radius: 10px; }
-        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
-        .cell-head { font-weight: bold; color: var(--cyan); padding: 5px 0; font-size: 1.1rem; }
+        /* ÁREA DE JUEGO ANCHA */
+        .game-wrapper { width: 100%; max-width: 1150px; display: flex; flex-direction: column; align-items: center; }
+        .header-info { background: var(--card); padding: 15px 25px; border-radius: 12px; text-align: center; margin-bottom: 20px; width: 100%; max-width: 400px; }
+        
+        /* DISPOSICIÓN HORIZONTAL */
+        .card-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; }
+        .single-card-box { background: var(--card); padding: 15px; border-radius: 12px; flex: 1 1 300px; max-width: 340px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; background: #0f172a; padding: 10px; border-radius: 8px; margin-top: 8px; }
+        .cell-head { font-weight: bold; color: var(--cyan); padding: 5px 0; font-size: 1.1rem; text-align: center; }
         .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; user-select: none; font-size: 1.1rem; cursor: pointer; }
         .cell.free { background: var(--accent); font-size: 0.7rem; }
         .cell.marked { background: #22c55e !important; color: white; }
         
-        .last-ball { font-size: 1.3rem; color: var(--cyan); margin-bottom: 10px; font-weight: bold; }
-        .btn-bingo { background: #22c55e; margin-top: 10px; font-size: 1.1rem; padding: 10px; }
+        .last-ball { font-size: 1.3rem; color: var(--cyan); margin-top: 5px; font-weight: bold; }
+        .btn-bingo { background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%; }
     </style>
 </head>
 <body>
 
-    <div class="box" id="loginBox">
+    <div class="login-box" id="loginBox">
         <h2>Unirse al Bingo 🇩🇴</h2>
         <input type="text" id="roomId" placeholder="Código de Sala (ej. 4821)">
         <input type="text" id="username" placeholder="Tu @usuario de TikTok">
@@ -40,9 +46,11 @@
         <button onclick="joinGame()">Entrar a Jugar</button>
     </div>
 
-    <div class="box" id="gameBox" style="display:none;">
-        <h3 id="playerTitle" style="margin: 5px 0;"></h3>
-        <div class="last-ball">Última Balota: <span id="lastBall" style="color:var(--accent)">--</span></div>
+    <div class="game-wrapper" id="gameBox" style="display:none;">
+        <div class="header-info">
+            <h3 id="playerTitle" style="margin: 0;"></h3>
+            <div class="last-ball">Última Balota: <span id="lastBall" style="color:var(--accent)">--</span></div>
+        </div>
         
         <div class="card-container" id="cardsContainer"></div>
     </div>
@@ -64,7 +72,7 @@
 
         socket.on('joinedSuccess', ({ roomId, cards, history }) => {
             document.getElementById('loginBox').style.display = 'none';
-            document.getElementById('gameBox').style.display = 'block';
+            document.getElementById('gameBox').style.display = 'flex';
             document.getElementById('playerTitle').innerText = `Jugador: ${myUser}`;
 
             renderPlayerCards(cards);
@@ -83,11 +91,7 @@
             cards.forEach((card, cardIndex) => {
                 const cardBox = document.createElement('div');
                 cardBox.className = 'single-card-box';
-                cardBox.innerHTML = `
-                    <div style="display:flex; justify-between; align-items:center; margin-bottom:5px;">
-                        <span style="color:var(--cyan); font-weight:bold;">Cartón #${cardIndex + 1}</span>
-                    </div>
-                `;
+                cardBox.innerHTML = `<div style="text-align:center; color:var(--cyan); font-weight:bold;">Cartón #${cardIndex + 1}</div>`;
 
                 const grid = document.createElement('div');
                 grid.className = 'card-grid';

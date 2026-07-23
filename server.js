@@ -11,7 +11,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = {};
 
-// Helper para obtener N números únicos en un rango
 function getUniqueNumbers(min, max, count) {
     const nums = new Set();
     while (nums.size < count) {
@@ -20,11 +19,10 @@ function getUniqueNumbers(min, max, count) {
     return Array.from(nums);
 }
 
-// Generador de cartón 5x5 estilo Bingo 75
 function generateBingoCard() {
     const b = getUniqueNumbers(1, 15, 5);
     const i = getUniqueNumbers(16, 30, 5);
-    const n = getUniqueNumbers(31, 45, 4); // 4 porque el centro es LIBRE
+    const n = getUniqueNumbers(31, 45, 4);
     const g = getUniqueNumbers(46, 60, 5);
     const o = getUniqueNumbers(61, 75, 5);
 
@@ -41,18 +39,20 @@ function generateBingoCard() {
     return card;
 }
 
+function getPlayerList(roomId) {
+    if (!rooms[roomId]) return [];
+    return Object.values(rooms[roomId].players).map(p => p.username);
+}
+
 io.on('connection', (socket) => {
 
-    // 1. El anfitrión crea la sala
     socket.on('createRoom', ({ hostPlay = false, cardCount = 1 }) => {
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
         
         let hostCards = [];
         if (hostPlay) {
             const count = Math.min(Math.max(parseInt(cardCount) || 1, 1), 3);
-            for (let i = 0; i < count; i++) {
-                hostCards.push(generateBingoCard());
-            }
+            for (let i = 0; i < count; i++) hostCards.push(generateBingoCard());
         }
 
         rooms[roomId] = {
@@ -65,7 +65,6 @@ io.on('connection', (socket) => {
         socket.emit('roomCreated', { roomId, cards: hostCards });
     });
 
-    // 2. Un jugador se une a la sala (soporta hasta 3 cartones)
     socket.on('joinRoom', ({ roomId, username, cardCount }) => {
         const room = rooms[roomId];
         if (!room) {
@@ -75,24 +74,19 @@ io.on('connection', (socket) => {
 
         const count = Math.min(Math.max(parseInt(cardCount) || 1, 1), 3);
         const cards = [];
-        for (let i = 0; i < count; i++) {
-            cards.push(generateBingoCard());
-        }
+        for (let i = 0; i < count; i++) cards.push(generateBingoCard());
 
         room.players[socket.id] = { username, cards };
         
         socket.join(roomId);
         socket.emit('joinedSuccess', { roomId, cards, history: room.drawnNumbers });
         
-        // Notificar al anfitrión
-        io.to(room.hostId).emit('playerJoined', { 
-            id: socket.id, 
-            username, 
-            totalPlayers: Object.keys(room.players).length 
+        // Notificar al anfitrión con la lista de usuarios
+        io.to(room.hostId).emit('updatePlayersList', { 
+            players: getPlayerList(roomId)
         });
     });
 
-    // 3. El anfitrión saca una balota
     socket.on('drawBall', ({ roomId }) => {
         const room = rooms[roomId];
         if (!room || room.hostId !== socket.id) return;
@@ -109,14 +103,12 @@ io.on('connection', (socket) => {
 
         room.drawnNumbers.push(num);
 
-        // Transmitir a todos en la sala
         io.to(roomId).emit('newBall', { 
             ball: num, 
             history: room.drawnNumbers 
         });
     });
 
-    // 4. Cantar Bingo
     socket.on('claimBingo', ({ roomId, username, cardIndex }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -124,13 +116,12 @@ io.on('connection', (socket) => {
         io.to(room.hostId).emit('bingoClaimed', { username, cardIndex });
     });
 
-    // Desconexión
     socket.on('disconnect', () => {
         for (const roomId in rooms) {
             if (rooms[roomId] && rooms[roomId].players[socket.id]) {
                 delete rooms[roomId].players[socket.id];
-                io.to(rooms[roomId].hostId).emit('playerLeft', { 
-                    totalPlayers: Object.keys(rooms[roomId].players).length 
+                io.to(rooms[roomId].hostId).emit('updatePlayersList', { 
+                    players: getPlayerList(roomId)
                 });
                 break;
             }
@@ -139,4 +130,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor ejecutándose en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));

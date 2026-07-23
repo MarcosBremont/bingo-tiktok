@@ -9,63 +9,74 @@
             --bg: #0f172a; --card: #1e293b; --accent: #ff0050; --cyan: #00f2fe; --text: #fff;
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; max-width: 550px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 10px 0; }
-        .ball { font-size: 4rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin: 20px auto; }
-        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 14px 28px; font-size: 1.2rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; margin-top: 10px; }
-        button:hover { transform: scale(1.05); }
-        .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; justify-content: center; max-height: 120px; overflow-y: auto; }
-        .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.9rem; }
-        #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; animation: pulse 1s infinite alternate; }
         
-        select { padding: 10px; border-radius: 8px; font-size: 1rem; margin: 10px 0; background: #334155; color: white; border: none; }
-        .card-container { margin-top: 25px; display: flex; flex-direction: column; gap: 20px; }
-        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; background: #0f172a; padding: 12px; border-radius: 10px; }
-        .cell-head { font-weight: bold; color: var(--cyan); padding: 5px 0; font-size: 1.1rem; }
-        .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; user-select: none; font-size: 1rem; cursor: pointer; }
+        /* Permitir un contenedor amplio para que quepan horizontalmente */
+        .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; width: 95%; max-width: 1200px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 5px 0; }
+        .ball { font-size: 3.5rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; margin: 15px auto; }
+        
+        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; margin-top: 10px; }
+        button:hover { transform: scale(1.05); }
+        
+        .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; max-height: 100px; overflow-y: auto; }
+        .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.9rem; }
+        
+        /* Lista de usuarios conectados */
+        .players-section { background: #0f172a; padding: 12px; border-radius: 10px; margin: 15px 0; }
+        .players-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+        .player-chip { background: var(--cyan); color: #000; font-weight: bold; padding: 5px 12px; border-radius: 15px; font-size: 0.9rem; }
+
+        /* Contenedor Horizontal para los cartones del anfitrión */
+        .card-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; width: 100%; }
+        .single-card-box { background: #0f172a; padding: 12px; border-radius: 10px; flex: 1 1 300px; max-width: 340px; }
+        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px; }
+        .cell-head { font-weight: bold; color: var(--cyan); padding: 4px 0; font-size: 1rem; }
+        .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; user-select: none; font-size: 1rem; cursor: pointer; }
         .cell.free { background: var(--accent); font-size: 0.7rem; }
         .cell.marked { background: #22c55e !important; color: white; }
 
-        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.03); } }
+        #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; width: 90%; max-width: 1100px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="alertBox"></div>
 
-    <div class="box">
+    <div class="box" style="max-width: 500px;" id="setupBox">
         <h1>🎱 Panel Anfitrión</h1>
+        <label style="display:block; margin-bottom: 10px;">
+            <input type="checkbox" id="hostPlay" onchange="toggleHostOptions()"> ¿Quieres jugar con cartones como anfitrión?
+        </label>
         
-        <div id="setupPanel">
-            <label style="display:block; margin-bottom: 10px;">
-                <input type="checkbox" id="hostPlay" onchange="toggleHostOptions()"> ¿Quieres jugar con cartones como anfitrión?
-            </label>
-            
-            <div id="hostCardOptions" style="display:none; margin-bottom: 15px;">
-                <label>Cantidad de cartones: </label>
-                <select id="hostCardCount">
-                    <option value="1">1 Cartón</option>
-                    <option value="2">2 Cartones</option>
-                    <option value="3">3 Cartones</option>
-                </select>
-            </div>
-
-            <button id="btnCreate" onclick="createRoom()">Crear Nueva Sala</button>
+        <div id="hostCardOptions" style="display:none; margin-bottom: 15px;">
+            <label>Cantidad de cartones: </label>
+            <select id="hostCardCount" style="padding: 8px; border-radius: 6px; background: #334155; color: white;">
+                <option value="1">1 Cartón</option>
+                <option value="2">2 Cartones</option>
+                <option value="3">3 Cartones</option>
+            </select>
         </div>
 
-        <div id="gamePanel" style="display:none;">
-            <p>Código de la sala para seguidores:</p>
-            <div class="room-code" id="displayRoom">----</div>
-            <p>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b></p>
-            
-            <div class="ball" id="currentBall">--</div>
-            <button onclick="drawBall()"> Sacar Balota</button>
+        <button onclick="createRoom()">Crear Nueva Sala</button>
+    </div>
 
-            <h3>Historial de Balotas</h3>
-            <div class="history" id="history"></div>
-
-            <div class="card-container" id="hostCardsContainer"></div>
+    <div class="box" id="gamePanel" style="display:none;">
+        <p>Código de la sala para seguidores:</p>
+        <div class="room-code" id="displayRoom">----</div>
+        
+        <!-- Lista de Jugadores Conectados -->
+        <div class="players-section">
+            <div>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b></div>
+            <div class="players-list" id="playersList"></div>
         </div>
+        
+        <div class="ball" id="currentBall">--</div>
+        <button onclick="drawBall()"> Sacar Balota</button>
+
+        <h3>Historial de Balotas</h3>
+        <div class="history" id="history"></div>
+
+        <div class="card-container" id="hostCardsContainer"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -87,22 +98,21 @@
 
         socket.on('roomCreated', ({ roomId, cards }) => {
             currentRoomId = roomId;
-            document.getElementById('setupPanel').style.display = 'none';
+            document.getElementById('setupBox').style.display = 'none';
             document.getElementById('gamePanel').style.display = 'block';
             document.getElementById('displayRoom').innerText = roomId;
 
-            if (cards && cards.length > 0) {
-                renderHostCards(cards);
-            }
+            if (cards && cards.length > 0) renderHostCards(cards);
         });
 
         function renderHostCards(cards) {
             const container = document.getElementById('hostCardsContainer');
-            container.innerHTML = '<h3>Tus Cartones de Anfitrión</h3>';
+            container.innerHTML = '';
 
             cards.forEach((card, index) => {
                 const cardDiv = document.createElement('div');
-                cardDiv.innerHTML = `<h4 style="color:var(--cyan); margin:10px 0 5px 0;">Cartón #${index + 1}</h4>`;
+                cardDiv.className = 'single-card-box';
+                cardDiv.innerHTML = `<div style="color:var(--cyan); font-weight:bold;">Cartón #${index + 1}</div>`;
                 
                 const grid = document.createElement('div');
                 grid.className = 'card-grid';
@@ -144,12 +154,10 @@
             }).reverse().join('');
         });
 
-        socket.on('playerJoined', ({ totalPlayers }) => {
-            document.getElementById('playerCount').innerText = totalPlayers;
-        });
-
-        socket.on('playerLeft', ({ totalPlayers }) => {
-            document.getElementById('playerCount').innerText = totalPlayers;
+        socket.on('updatePlayersList', ({ players }) => {
+            document.getElementById('playerCount').innerText = players.length;
+            const listDiv = document.getElementById('playersList');
+            listDiv.innerHTML = players.map(p => `<span class="player-chip">${p}</span>`).join('');
         });
 
         socket.on('bingoClaimed', ({ username, cardIndex }) => {
