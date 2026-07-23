@@ -6,7 +6,7 @@
     <title>Jugador - Bingo TikTok</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --cyan: #00f2fe; --accent: #ff0050; --text: #fff; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 95vh; justify-content: space-between; }
         
         .login-box { background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         input, select { width: 85%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 1rem; text-align: center; background: #334155; color: white; }
@@ -27,6 +27,9 @@
         .btn-bingo { background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%; }
 
         #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; width: 90%; max-width: 1100px; text-align: center; }
+
+        footer { margin-top: 25px; font-size: 0.95rem; color: #94a3b8; text-align: center; }
+        footer b { color: var(--cyan); letter-spacing: 0.5px; }
     </style>
 </head>
 <body>
@@ -56,6 +59,10 @@
         
         <div class="card-container" id="cardsContainer"></div>
     </div>
+
+    <footer>
+        Desarrollado por <b>Marcos Bremont</b> &copy; 2026
+    </footer>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>

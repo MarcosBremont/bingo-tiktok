@@ -9,7 +9,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// CLAVE DE SEGURIDAD PARA EL ANFITRIÓN (Cámbiala por la tuya)
+// CLAVE DE SEGURIDAD PARA EL ANFITRIÓN
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "bingo2026";
 
 const rooms = {};
@@ -49,7 +49,6 @@ function getPlayerList(roomId) {
 
 io.on('connection', (socket) => {
 
-    // VALIDACIÓN DE SEGURIDAD AL CREAR SALA
     socket.on('createRoom', ({ password, hostPlay = false, cardCount = 1 }) => {
         if (password !== HOST_PASSWORD) {
             socket.emit('errorMsg', 'Clave de anfitrión incorrecta. Acceso denegado.');
@@ -163,4 +162,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor ejecutándose en puerto ${PORT}`));
