@@ -57,6 +57,8 @@ io.on('connection', (socket) => {
 
         rooms[roomId] = {
             hostId: socket.id,
+            hostPlay,
+            hostCardCount: cardCount,
             drawnNumbers: [],
             players: {}
         };
@@ -76,7 +78,7 @@ io.on('connection', (socket) => {
         const cards = [];
         for (let i = 0; i < count; i++) cards.push(generateBingoCard());
 
-        room.players[socket.id] = { username, cards };
+        room.players[socket.id] = { username, cards, cardCount: count };
         
         socket.join(roomId);
         socket.emit('joinedSuccess', { roomId, cards, history: room.drawnNumbers });
@@ -108,11 +110,39 @@ io.on('connection', (socket) => {
         });
     });
 
+    // TRANSMITIR BINGO A TODOS EN LA SALA
     socket.on('claimBingo', ({ roomId, username, cardIndex }) => {
         const room = rooms[roomId];
         if (!room) return;
 
-        io.to(room.hostId).emit('bingoClaimed', { username, cardIndex });
+        io.to(roomId).emit('bingoClaimed', { username, cardIndex });
+    });
+
+    // REINICIAR PARTIDA
+    socket.on('resetGame', ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room || room.hostId !== socket.id) return;
+
+        room.drawnNumbers = [];
+
+        // Generar nuevos cartones para el anfitrión si está jugando
+        let newHostCards = [];
+        if (room.hostPlay) {
+            for (let i = 0; i < room.hostCardCount; i++) newHostCards.push(generateBingoCard());
+        }
+
+        // Notificar al anfitrión
+        socket.emit('gameResetHost', { cards: newHostCards });
+
+        // Regenerar cartones para todos los jugadores en la sala
+        for (const socketId in room.players) {
+            const player = room.players[socketId];
+            const newCards = [];
+            for (let i = 0; i < player.cardCount; i++) newCards.push(generateBingoCard());
+            player.cards = newCards;
+
+            io.to(socketId).emit('gameResetPlayer', { cards: newCards });
+        }
     });
 
     socket.on('disconnect', () => {

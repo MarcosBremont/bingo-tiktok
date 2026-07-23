@@ -14,8 +14,9 @@
         .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 5px 0; }
         .ball { font-size: 3.5rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; margin: 15px auto; }
         
-        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; margin-top: 10px; }
+        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; margin: 5px; }
         button:hover { transform: scale(1.05); }
+        .btn-reset { background: #ef4444; }
         
         .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; max-height: 100px; overflow-y: auto; }
         .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.9rem; }
@@ -67,7 +68,10 @@
         </div>
         
         <div class="ball" id="currentBall">--</div>
-        <button onclick="drawBall()"> Sacar Balota</button>
+        <div>
+            <button onclick="drawBall()">Sacar Balota</button>
+            <button class="btn-reset" onclick="resetGame()">Reiniciar Juego 🔄</button>
+        </div>
 
         <h3>Historial de Balotas</h3>
         <div class="history" id="history"></div>
@@ -148,6 +152,12 @@
             if (currentRoomId) socket.emit('drawBall', { roomId: currentRoomId });
         }
 
+        function resetGame() {
+            if (confirm("¿Estás seguro de reiniciar la partida? Se limpiará la tómbola y se entregarán nuevos cartones.")) {
+                socket.emit('resetGame', { roomId: currentRoomId });
+            }
+        }
+
         socket.on('newBall', ({ ball, history }) => {
             let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
             document.getElementById('currentBall').innerText = `${letter}${ball}`;
@@ -169,7 +179,13 @@
             const alert = document.getElementById('alertBox');
             alert.innerText = ` ¡${username} HA CANTADO BINGO EN EL CARTÓN #${cardIndex + 1}! `;
             alert.style.display = 'block';
-            setTimeout(() => alert.style.display = 'none', 8000);
+        });
+
+        socket.on('gameResetHost', ({ cards }) => {
+            document.getElementById('alertBox').style.display = 'none';
+            document.getElementById('currentBall').innerText = '--';
+            document.getElementById('history').innerHTML = '';
+            if (cards && cards.length > 0) renderHostCards(cards);
         });
 
         socket.on('errorMsg', (msg) => alert(msg));

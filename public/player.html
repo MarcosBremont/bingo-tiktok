@@ -25,9 +25,13 @@
         
         .last-ball { font-size: 1.3rem; color: var(--cyan); margin-top: 5px; font-weight: bold; }
         .btn-bingo { background: #22c55e; margin-top: 15px; font-size: 1.1rem; padding: 10px; width: 100%; }
+
+        #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; width: 90%; max-width: 1100px; text-align: center; }
     </style>
 </head>
 <body>
+
+    <div id="alertBox"></div>
 
     <div class="login-box" id="loginBox">
         <h2>Unirse al Bingo 🇩🇴</h2>
@@ -128,10 +132,17 @@
             document.getElementById('lastBall').innerText = `${letter}${ball}`;
         });
 
-        function claimBingo(cardIndex) {
-            socket.emit('claimBingo', { roomId: myRoom, username: myUser, cardIndex });
-            alert(`¡Has enviado la alerta de BINGO para tu Cartón #${cardIndex + 1}!`);
-        }
+        socket.on('bingoClaimed', ({ username, cardIndex }) => {
+            const alert = document.getElementById('alertBox');
+            alert.innerText = ` ¡${username} HA CANTADO BINGO EN EL CARTÓN #${cardIndex + 1}! `;
+            alert.style.display = 'block';
+        });
+
+        socket.on('gameResetPlayer', ({ cards }) => {
+            document.getElementById('alertBox').style.display = 'none';
+            document.getElementById('lastBall').innerText = '--';
+            renderPlayerCards(cards);
+        });
 
         socket.on('errorMsg', (msg) => alert(msg));
     </script>
