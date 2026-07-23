@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo TikTok Live - Marcos Bremont</title>
+    <title>Anfitrión - Bingo TikTok Live</title>
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --accent: #ff0050; --cyan: #00f2fe; --text: #fff;
         }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 95vh; justify-content: space-between; }
         
-        .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; width: 95%; max-width: 1200px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; width: 95%; max-width: 1200px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); margin-bottom: 20px; }
         .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 5px 0; }
         .ball { font-size: 3.5rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; margin: 15px auto; }
         
-        input[type="password"] { padding: 12px; border-radius: 8px; font-size: 1rem; width: 80%; margin-bottom: 15px; border: 2px solid #334155; background: #0f172a; color: white; text-align: center; font-family: monospace; }
-        
+        input, select { padding: 10px; border-radius: 8px; font-size: 1rem; border: 2px solid #334155; background: #0f172a; color: white; text-align: center; }
         button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; margin: 5px; }
         button:hover { transform: scale(1.05); }
         .btn-reset { background: #ef4444; }
@@ -54,22 +53,24 @@
 </head>
 <body>
 
+    <!-- Ventana Modal de Verificación de Bingo -->
     <div id="alertBox">
         <h2 id="alertTitle">🎉 ¡ALGUIEN CANTÓ BINGO!</h2>
         <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 5px;"></div>
         
         <div class="legend">
-            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido (Marcó y salió)</div>
-            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto (Marcó pero no salió)</div>
+            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido</div>
+            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto (No salió)</div>
         </div>
 
         <div id="verifyCardContainer" class="verify-card"></div>
         <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación ❌</button>
     </div>
 
+    <!-- Panel Inicial de Configuración -->
     <div class="box" style="max-width: 450px;" id="setupBox">
         <h1>🎱 Panel Anfitrión</h1>
-        <input type="password" id="hostPassword" placeholder="Clave de Anfitrión" autocomplete="off">
+        <input type="password" id="hostPassword" placeholder="Clave de Anfitrión" autocomplete="off" style="width:80%; margin-bottom:15px;"><br>
 
         <label style="display:block; margin-bottom: 10px;">
             <input type="checkbox" id="hostPlay" onchange="toggleHostOptions()"> ¿Quieres jugar con cartones como anfitrión?
@@ -77,7 +78,7 @@
         
         <div id="hostCardOptions" style="display:none; margin-bottom: 15px;">
             <label>Cantidad de cartones: </label>
-            <select id="hostCardCount" style="padding: 8px; border-radius: 6px; background: #334155; color: white;">
+            <select id="hostCardCount">
                 <option value="1">1 Cartón</option>
                 <option value="2">2 Cartones</option>
                 <option value="3">3 Cartones</option>
@@ -87,12 +88,32 @@
         <button onclick="createRoom()">Crear Nueva Sala</button>
     </div>
 
+    <!-- Panel de Juego Principal -->
     <div class="box" id="gamePanel" style="display:none;">
-        <p>Código de la sala para seguidores:</p>
+        <p style="margin:0;">Código de Sala:</p>
         <div class="room-code" id="displayRoom">----</div>
         
+        <!-- Opciones de Partida y TikTok Live -->
+        <div style="background:#0f172a; padding:15px; border-radius:10px; margin:15px 0;">
+            <div style="display:flex; justify-content:space-around; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <label>Modo de Victoria: </label>
+                    <select id="patternSelect" onchange="updatePattern()">
+                        <option value="FULL">Cartón Lleno (Blackout)</option>
+                        <option value="LINE">Línea Horizontal/Vertical</option>
+                        <option value="CORNER">4 Esquinas</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="text" id="tiktokUser" placeholder="@usuario_tiktok" style="width:150px;">
+                    <button onclick="connectTikTok()" style="padding:8px 15px; font-size:0.9rem;">Conectar Live</button>
+                    <span id="tiktokStatus" style="font-size:0.85rem; font-weight:bold; display:block;"></span>
+                </div>
+            </div>
+        </div>
+
         <div class="players-section">
-            <div>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b></div>
+            <div>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b> | Balotas Restantes: <b id="ballsLeft" style="color:var(--cyan)">75</b></div>
             <div class="players-list" id="playersList"></div>
         </div>
         
@@ -104,6 +125,11 @@
 
         <h3>Historial de Balotas</h3>
         <div class="history" id="history"></div>
+
+        <div style="margin-top:20px; background:#0f172a; padding:15px; border-radius:10px;">
+            <h3>🏆 Historial de Ganadores</h3>
+            <ul id="winnersList" style="list-style:none; padding:0; margin:0; text-align:center;"></ul>
+        </div>
 
         <div class="card-container" id="hostCardsContainer"></div>
     </div>
@@ -117,14 +143,14 @@
         const socket = io();
         let currentRoomId = null;
 
-        // Cargar audios
+        // Cargar sonidos
         const audioClick = new Audio('/click.mp3');
         const audioBingo = new Audio('/bingo.mp3');
         const audioFail = new Audio('/gameover.mp3');
 
         function playSound(audio) {
             audio.currentTime = 0;
-            audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+            audio.play().catch(e => console.log('Audio autoplay bloqueado por navegador:', e));
         }
 
         function toggleHostOptions() {
@@ -138,7 +164,7 @@
             const cardCount = document.getElementById('hostCardCount').value;
 
             if (!password) return alert('Debes ingresar la clave de anfitrión.');
-            socket.emit('createRoom', { password, hostPlay, cardCount });
+            socket.emit('createRoom', { password, hostPlay, cardCount, gamePattern: document.getElementById('patternSelect').value });
         }
 
         socket.on('roomCreated', ({ roomId, cards }) => {
@@ -148,6 +174,31 @@
             document.getElementById('displayRoom').innerText = roomId;
 
             if (cards && cards.length > 0) renderHostCards(cards);
+        });
+
+        function updatePattern() {
+            const pattern = document.getElementById('patternSelect').value;
+            socket.emit('changePattern', { roomId: currentRoomId, pattern });
+        }
+
+        function connectTikTok() {
+            const tiktokUsername = document.getElementById('tiktokUser').value.trim();
+            if (!tiktokUsername) return alert('Ingresa tu usuario de TikTok');
+
+            document.getElementById('tiktokStatus').style.color = '#00f2fe';
+            document.getElementById('tiktokStatus').innerText = 'Conectando...';
+            socket.emit('connectTikTok', { tiktokUsername, roomId: currentRoomId });
+        }
+
+        socket.on('tiktokConnected', ({ status, error }) => {
+            const statusSpan = document.getElementById('tiktokStatus');
+            if (status) {
+                statusSpan.style.color = '#22c55e';
+                statusSpan.innerText = '● Conectado a TikTok Live';
+            } else {
+                statusSpan.style.color = '#ef4444';
+                statusSpan.innerText = '❌ Error al conectar';
+            }
         });
 
         function renderHostCards(cards) {
@@ -215,11 +266,12 @@
             }
         }
 
-        socket.on('newBall', ({ ball, history }) => {
-            playSound(audioClick); // Sonido de sacar balota
+        socket.on('newBall', ({ ball, history, remaining }) => {
+            playSound(audioClick);
 
             let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
             document.getElementById('currentBall').innerText = `${letter}${ball}`;
+            document.getElementById('ballsLeft').innerText = remaining;
 
             const historyDiv = document.getElementById('history');
             historyDiv.innerHTML = history.map(n => {
@@ -232,6 +284,15 @@
             document.getElementById('playerCount').innerText = players.length;
             const listDiv = document.getElementById('playersList');
             listDiv.innerHTML = players.map(p => `<span class="player-chip">${p}</span>`).join('');
+        });
+
+        socket.on('updateWinners', ({ history }) => {
+            const list = document.getElementById('winnersList');
+            list.innerHTML = history.map(w => 
+                `<li style="padding:4px 0; border-bottom:1px solid #334155;">
+                    🏆 <b>${w.username}</b> - Modo: <span style="color:var(--cyan)">${w.pattern}</span> (${w.time})
+                </li>`
+            ).join('');
         });
 
         socket.on('bingoClaimed', ({ username, cardIndex, card, markedNumbers, drawnNumbers }) => {
@@ -266,7 +327,7 @@
                             cell.classList.add('valid-match'); 
                         } else if (isMarked && !isDrawn) {
                             cell.classList.add('bad-match');   
-                            hasErrors = true; // Hay al menos un número en rojo
+                            hasErrors = true;
                         }
                     }
                     grid.appendChild(cell);
@@ -275,10 +336,10 @@
 
             if (hasErrors) {
                 alertBox.classList.add('has-error');
-                playSound(audioFail); // Reproduce gameover.mp3 si falló
+                playSound(audioFail);
             } else {
                 alertBox.classList.remove('has-error');
-                playSound(audioBingo); // Reproduce bingo.mp3 si fue perfecto
+                playSound(audioBingo);
             }
 
             container.appendChild(grid);
@@ -289,6 +350,7 @@
             document.getElementById('alertBox').style.display = 'none';
             document.getElementById('currentBall').innerText = '--';
             document.getElementById('history').innerHTML = '';
+            document.getElementById('ballsLeft').innerText = '75';
             if (cards && cards.length > 0) renderHostCards(cards);
         });
 

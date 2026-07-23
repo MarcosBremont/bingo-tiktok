@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Overlay Bingo OBS</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: transparent;
+            font-family: system-ui, sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .bar-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 10px 25px;
+            border-radius: 40px;
+            border: 2px solid #00f2fe;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            width: fit-content;
+        }
+
+        .main-ball {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #ff0050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 0, 80, 0.8);
+            animation: pop 0.3s ease-out;
+        }
+
+        .history-box {
+            display: flex;
+            gap: 6px;
+        }
+
+        .history-ball {
+            background: #334155;
+            color: #00f2fe;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .counter-badge {
+            background: #22c55e;
+            color: #000;
+            font-weight: bold;
+            padding: 6px 14px;
+            border-radius: 15px;
+            font-size: 0.95rem;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.6); }
+            80% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bar-wrapper">
+        <span style="font-size:0.85rem; color:#94a3b8; font-weight:bold;">ÚLTIMA:</span>
+        <div class="main-ball" id="ball">--</div>
+
+        <span style="font-size:0.85rem; color:#94a3b8; font-weight:bold; margin-left:10px;">PREVIAS:</span>
+        <div class="history-box" id="history"></div>
+
+        <div class="counter-badge" id="counter">75 Restantes</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room');
+
+        if (roomId) {
+            socket.emit('joinRoom', { roomId, username: 'Overlay_OBS', cardCount: 0 });
+        }
+
+        socket.on('newBall', ({ ball, history, remaining }) => {
+            let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
+            
+            const ballDiv = document.getElementById('ball');
+            ballDiv.innerText = `${letter}${ball}`;
+            
+            ballDiv.style.animation = 'none';
+            ballDiv.offsetHeight;
+            ballDiv.style.animation = 'pop 0.3s ease-out';
+
+            document.getElementById('counter').innerText = `${remaining} Restantes`;
+
+            const historyDiv = document.getElementById('history');
+            const prev = history.slice(0, -1).reverse().slice(0, 4);
+            historyDiv.innerHTML = prev.map(n => {
+                let l = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O';
+                return `<div class="history-ball">${l}${n}</div>`;
+            }).join('');
+        });
+    </script>
+</body>
+</html>

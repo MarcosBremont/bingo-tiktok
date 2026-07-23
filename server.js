@@ -1,181 +1,205 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
+const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
-const HOST_PASSWORD = process.env.HOST_PASSWORD || "bingo2026";
-
+// Estado global de las salas
 const rooms = {};
 
-function getUniqueNumbers(min, max, count) {
-    const nums = new Set();
-    while (nums.size < count) {
-        nums.add(Math.floor(Math.random() * (max - min + 1)) + min);
-    }
-    return Array.from(nums);
-}
-
-function generateBingoCard() {
-    const b = getUniqueNumbers(1, 15, 5);
-    const i = getUniqueNumbers(16, 30, 5);
-    const n = getUniqueNumbers(31, 45, 4);
-    const g = getUniqueNumbers(46, 60, 5);
-    const o = getUniqueNumbers(61, 75, 5);
-
-    const card = [];
-    for (let r = 0; r < 5; r++) {
-        card.push([
-            b[r],
-            i[r],
-            r === 2 ? "LIBRE" : (r > 2 ? n[r - 1] : n[r]),
-            g[r],
-            o[r]
-        ]);
-    }
-    return card;
-}
-
-function getPlayerList(roomId) {
-    if (!rooms[roomId]) return [];
-    return Object.values(rooms[roomId].players).map(p => p.username);
-}
+// Instancia global para TikTok Live
+let tiktokLiveConnection = null;
 
 io.on('connection', (socket) => {
 
-    socket.on('createRoom', ({ password, hostPlay = false, cardCount = 1 }) => {
-        if (password !== HOST_PASSWORD) {
-            socket.emit('errorMsg', 'Clave de anfitrión incorrecta. Acceso denegado.');
-            return;
-        }
-
+    // 1. Crear Sala (Anfitrión)
+    socket.on('createRoom', ({ password, hostPlay, cardCount, gamePattern }) => {
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
         
-        let hostCards = [];
-        if (hostPlay) {
-            const count = Math.min(Math.max(parseInt(cardCount) || 1, 1), 3);
-            for (let i = 0; i < count; i++) hostCards.push(generateBingoCard());
-        }
-
         rooms[roomId] = {
-            hostId: socket.id,
-            hostPlay,
-            hostCardCount: cardCount,
-            hostCards: hostCards,
+            password,
             drawnNumbers: [],
-            players: {}
+            totalBalls: 75,
+            gamePattern: gamePattern || 'FULL',
+            winnersHistory: [],
+            players: {},
+            hostCards: hostPlay ? generateCards(cardCount) : []
         };
 
         socket.join(roomId);
-        socket.emit('roomCreated', { roomId, cards: hostCards });
+        socket.emit('roomCreated', { 
+            roomId, 
+            cards: rooms[roomId].hostCards,
+            gamePattern: rooms[roomId].gamePattern
+        });
     });
 
+    // 2. Unirse a la Sala (Jugador / Overlay)
     socket.on('joinRoom', ({ roomId, username, cardCount }) => {
         const room = rooms[roomId];
-        if (!room) {
-            socket.emit('errorMsg', 'La sala no existe o ha expirado.');
-            return;
-        }
+        if (!room) return socket.emit('errorMsg', 'La sala no existe.');
 
-        const count = Math.min(Math.max(parseInt(cardCount) || 1, 1), 3);
-        const cards = [];
-        for (let i = 0; i < count; i++) cards.push(generateBingoCard());
-
-        room.players[socket.id] = { username, cards, cardCount: count };
-        
         socket.join(roomId);
-        socket.emit('joinedSuccess', { roomId, cards, history: room.drawnNumbers });
-        
-        io.to(room.hostId).emit('updatePlayersList', { 
-            players: getPlayerList(roomId)
-        });
-    });
 
-    socket.on('drawBall', ({ roomId }) => {
-        const room = rooms[roomId];
-        if (!room || room.hostId !== socket.id) return;
+        // Si no es la captura de OBS, registrarlo como jugador activo
+        if (username !== 'Overlay_OBS') {
+            const cards = generateCards(cardCount || 1);
+            room.players[socket.id] = { username, cards };
+            
+            socket.emit('joinedSuccess', { 
+                roomId, 
+                cards, 
+                history: room.drawnNumbers,
+                gamePattern: room.gamePattern
+            });
 
-        if (room.drawnNumbers.length >= 75) {
-            socket.emit('errorMsg', 'Ya salieron las 75 balotas.');
-            return;
-        }
-
-        let num;
-        do {
-            num = Math.floor(Math.random() * 75) + 1;
-        } while (room.drawnNumbers.includes(num));
-
-        room.drawnNumbers.push(num);
-
-        io.to(roomId).emit('newBall', { 
-            ball: num, 
-            history: room.drawnNumbers 
-        });
-    });
-
-    socket.on('claimBingo', ({ roomId, username, cardIndex, markedNumbers }) => {
-        const room = rooms[roomId];
-        if (!room) return;
-
-        let claimedCard = null;
-        if (socket.id === room.hostId) {
-            claimedCard = room.hostCards[cardIndex];
-        } else if (room.players[socket.id]) {
-            claimedCard = room.players[socket.id].cards[cardIndex];
-        }
-
-        if (claimedCard) {
-            io.to(roomId).emit('bingoClaimed', { 
-                username, 
-                cardIndex, 
-                card: claimedCard,
-                markedNumbers: markedNumbers || [],
-                drawnNumbers: room.drawnNumbers
+            io.to(roomId).emit('updatePlayersList', { 
+                players: Object.values(room.players).map(p => p.username) 
             });
         }
     });
 
-    socket.on('resetGame', ({ roomId }) => {
-        const room = rooms[roomId];
-        if (!room || room.hostId !== socket.id) return;
-
-        room.drawnNumbers = [];
-
-        let newHostCards = [];
-        if (room.hostPlay) {
-            for (let i = 0; i < room.hostCardCount; i++) newHostCards.push(generateBingoCard());
-        }
-        room.hostCards = newHostCards;
-
-        socket.emit('gameResetHost', { cards: newHostCards });
-
-        for (const socketId in room.players) {
-            const player = room.players[socketId];
-            const newCards = [];
-            for (let i = 0; i < player.cardCount; i++) newCards.push(generateBingoCard());
-            player.cards = newCards;
-
-            io.to(socketId).emit('gameResetPlayer', { cards: newCards });
+    // 3. Cambiar Patrón de Juego
+    socket.on('changePattern', ({ roomId, pattern }) => {
+        if (rooms[roomId]) {
+            rooms[roomId].gamePattern = pattern;
+            io.to(roomId).emit('patternUpdated', { pattern });
         }
     });
 
-    socket.on('disconnect', () => {
-        for (const roomId in rooms) {
-            if (rooms[roomId] && rooms[roomId].players[socket.id]) {
-                delete rooms[roomId].players[socket.id];
-                io.to(rooms[roomId].hostId).emit('updatePlayersList', { 
-                    players: getPlayerList(roomId)
-                });
-                break;
-            }
+    // 4. Sacar Balota
+    socket.on('drawBall', ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+
+        if (room.drawnNumbers.length >= room.totalBalls) {
+            return socket.emit('errorMsg', 'Ya salieron todas las balotas (75/75).');
         }
+
+        let nextBall;
+        do {
+            nextBall = Math.floor(Math.random() * 75) + 1;
+        } while (room.drawnNumbers.includes(nextBall));
+
+        room.drawnNumbers.push(nextBall);
+
+        io.to(roomId).emit('newBall', { 
+            ball: nextBall, 
+            history: room.drawnNumbers,
+            remaining: room.totalBalls - room.drawnNumbers.length
+        });
+    });
+
+    // 5. Verificación y Canto de Bingo
+    socket.on('claimBingo', ({ roomId, username, cardIndex, markedNumbers }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+
+        let playerCard;
+        if (username.includes('Anfitrión')) {
+            playerCard = room.hostCards[cardIndex];
+        } else if (room.players[socket.id]) {
+            playerCard = room.players[socket.id].cards[cardIndex];
+        }
+
+        if (!playerCard) return;
+
+        // Comprobar si hubo números marcados que NO habían salido
+        const badNumbers = markedNumbers.filter(n => !room.drawnNumbers.includes(n));
+        const isValid = badNumbers.length === 0 && markedNumbers.length > 0;
+
+        if (isValid) {
+            const winnerEntry = {
+                username,
+                pattern: room.gamePattern,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            room.winnersHistory.unshift(winnerEntry);
+            io.to(roomId).emit('updateWinners', { history: room.winnersHistory });
+        }
+
+        io.to(roomId).emit('bingoClaimed', {
+            username,
+            cardIndex,
+            card: playerCard,
+            markedNumbers,
+            drawnNumbers: room.drawnNumbers
+        });
+    });
+
+    // 6. Conexión con TikTok Live
+    socket.on('connectTikTok', ({ tiktokUsername, roomId }) => {
+        if (tiktokLiveConnection) {
+            try { tiktokLiveConnection.disconnect(); } catch (e) {}
+        }
+
+        tiktokLiveConnection = new WebcastPushConnection(tiktokUsername);
+
+        tiktokLiveConnection.connect().then(state => {
+            socket.emit('tiktokConnected', { status: true });
+        }).catch(err => {
+            socket.emit('tiktokConnected', { status: false, error: err.message });
+        });
+
+        tiktokLiveConnection.on('chat', data => {
+            io.to(roomId).emit('tiktokChatMessage', {
+                user: data.uniqueId,
+                comment: data.comment
+            });
+        });
+    });
+
+    // 7. Reiniciar Partida
+    socket.on('resetGame', ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+
+        room.drawnNumbers = [];
+        if (room.hostCards.length > 0) {
+            room.hostCards = generateCards(room.hostCards.length);
+        }
+
+        Object.keys(room.players).forEach(id => {
+            const count = room.players[id].cards.length;
+            room.players[id].cards = generateCards(count);
+            io.to(id).emit('gameResetPlayer', { cards: room.players[id].cards });
+        });
+
+        io.to(roomId).emit('gameResetHost', { cards: room.hostCards });
     });
 });
 
+// Función Auxiliar: Generar Cartones
+function generateCards(count) {
+    const cards = [];
+    for (let i = 0; i < count; i++) {
+        cards.push([
+            getCol(1, 15),
+            getCol(16, 30),
+            getCol(31, 45, true),
+            getCol(46, 60),
+            getCol(61, 75)
+        ]);
+    }
+    return cards;
+}
+
+function getCol(min, max, isMiddle = false) {
+    const nums = [];
+    while (nums.length < 5) {
+        let n = Math.floor(Math.random() * (max - min + 1)) + min;
+        if (!nums.includes(n)) nums.push(n);
+    }
+    if (isMiddle) nums[2] = 'LIBRE';
+    return nums;
+}
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor ejecutándose en puerto ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Servidor de Bingo activo en http://localhost:${PORT}`);
+});

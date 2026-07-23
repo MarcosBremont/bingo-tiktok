@@ -45,19 +45,21 @@
 </head>
 <body>
 
+    <!-- Ventana Modal de Verificación -->
     <div id="alertBox">
         <h2 id="alertTitle">🎉 ¡ALGUIEN CANTÓ BINGO!</h2>
         <div id="alertSubtitle" style="font-size: 1.1rem; margin-bottom: 5px;"></div>
         
         <div class="legend">
-            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido (Marcó y salió)</div>
-            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto (Marcó pero no salió)</div>
+            <div class="legend-item"><span class="dot" style="background:#22c55e;"></span> Válido</div>
+            <div class="legend-item"><span class="dot" style="background:#ef4444;"></span> Incorrecto</div>
         </div>
 
         <div id="verifyCardContainer" class="verify-card"></div>
         <button class="close-alert-btn" onclick="document.getElementById('alertBox').style.display='none'">Cerrar Verificación ❌</button>
     </div>
 
+    <!-- Login Jugador -->
     <div class="login-box" id="loginBox">
         <h2>Unirse al Bingo 🇩🇴</h2>
         <input type="text" id="roomId" placeholder="Código de Sala (ej. 4821)">
@@ -73,6 +75,7 @@
         <button onclick="joinGame()">Entrar a Jugar</button>
     </div>
 
+    <!-- Tablero del Jugador -->
     <div class="game-wrapper" id="gameBox" style="display:none;">
         <div class="header-info">
             <h3 id="playerTitle" style="margin: 0;"></h3>
@@ -99,7 +102,7 @@
 
         function playSound(audio) {
             audio.currentTime = 0;
-            audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+            audio.play().catch(e => console.log('Audio autoplay bloqueado por navegador:', e));
         }
 
         function joinGame() {
@@ -185,7 +188,7 @@
         }
 
         socket.on('newBall', ({ ball }) => {
-            playSound(audioClick); // Sonido al salir balota
+            playSound(audioClick);
 
             let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
             document.getElementById('lastBall').innerText = `${letter}${ball}`;
@@ -223,7 +226,7 @@
                             cell.classList.add('valid-match'); 
                         } else if (isMarked && !isDrawn) {
                             cell.classList.add('bad-match');   
-                            hasErrors = true; // Hay números erróneos en rojo
+                            hasErrors = true;
                         }
                     }
                     grid.appendChild(cell);
@@ -232,10 +235,10 @@
 
             if (hasErrors) {
                 alertBox.classList.add('has-error');
-                playSound(audioFail); // Reproduce gameover.mp3 si falló
+                playSound(audioFail);
             } else {
                 alertBox.classList.remove('has-error');
-                playSound(audioBingo); // Reproduce bingo.mp3 si fue perfecto
+                playSound(audioBingo);
             }
 
             container.appendChild(grid);
