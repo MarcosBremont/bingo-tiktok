@@ -22,7 +22,6 @@ function generateRoomCode(length = 6) {
     return result;
 }
 
-// Función auxiliar para obtener la letra del Bingo
 function getBingoLetter(num) {
     if (num >= 1 && num <= 15) return 'B';
     if (num >= 16 && num <= 30) return 'I';
@@ -35,7 +34,8 @@ function getBingoLetter(num) {
 let gameState = {
     roomCode: generateRoomCode(),
     drawnNumbers: [],
-    lastDrawnBall: null, // Guardará un objeto { number: 4, formatted: 'B4' }
+    drawnHistory: [], // Historial completo con formato { number: 4, letter: 'B', formatted: 'B4' }
+    lastDrawnBall: null,
     players: {},
     winModes: ['line', 'diagonal', 'corners', 'full'],
     tikTokUsername: '',
@@ -71,7 +71,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Sacar Balota Aleatoria con Letra + Número
     socket.on('drawRandomNumber', ({ password }) => {
         if (password !== HOST_PASSWORD) return;
 
@@ -92,11 +91,13 @@ io.on('connection', (socket) => {
             };
 
             gameState.drawnNumbers.push(num);
+            gameState.drawnHistory.push(ballData);
             gameState.lastDrawnBall = ballData;
 
             io.emit('numberDrawn', {
                 ball: ballData,
-                drawnNumbers: gameState.drawnNumbers
+                drawnNumbers: gameState.drawnNumbers,
+                drawnHistory: gameState.drawnHistory
             });
         }
     });
@@ -104,6 +105,7 @@ io.on('connection', (socket) => {
     socket.on('resetGame', ({ password }) => {
         if (password !== HOST_PASSWORD) return;
         gameState.drawnNumbers = [];
+        gameState.drawnHistory = [];
         gameState.lastDrawnBall = null;
         gameState.roomCode = generateRoomCode();
         gameState.players = {};
@@ -111,7 +113,6 @@ io.on('connection', (socket) => {
         io.emit('gameStateUpdate', gameState);
     });
 
-    // Registrar o Generar Cartones (Aplica para Jugadores y Anfitrión)
     socket.on('joinGame', ({ roomCode, username, cardsCount }, callback) => {
         const cleanRoomInput = (roomCode || '').trim().toUpperCase();
         if (cleanRoomInput !== gameState.roomCode) {
@@ -150,7 +151,7 @@ io.on('connection', (socket) => {
             });
         } else {
             socket.emit('bingoRejected', {
-                reason: 'Tu cartón aún no cumple con ninguno de los modos de victoria activos.'
+                reason: 'Tu cartón aún no cumple con los modos activos según las balotas que han salido.'
             });
         }
     });
@@ -235,9 +236,11 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
 
     if (activeModes.includes('line')) {
         let hasLine = false;
+        // Horizontales
         for (let r = 0; r < 5; r++) {
             if (grid[r].every(Boolean)) { hasLine = true; break; }
         }
+        // Verticales
         if (!hasLine) {
             for (let c = 0; c < 5; c++) {
                 if (grid.every(row => row[c])) { hasLine = true; break; }
@@ -271,4 +274,4 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Servidor de Bingo activo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
