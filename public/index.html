@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anfitrión - Bingo TikTok</title>
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --accent: #ff0050; --cyan: #00f2fe; --text: #fff;
+        }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .box { background: var(--card); padding: 25px; border-radius: 12px; text-align: center; max-width: 500px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .room-code { font-size: 3rem; font-weight: bold; color: var(--cyan); letter-spacing: 4px; margin: 10px 0; }
+        .ball { font-size: 4rem; font-weight: bold; color: var(--accent); border: 4px dashed var(--accent); border-radius: 50%; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin: 20px auto; }
+        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 14px 28px; font-size: 1.2rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: transform 0.2s; }
+        button:hover { transform: scale(1.05); }
+        .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 15px; justify-content: center; max-height: 120px; overflow-y: auto; }
+        .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 0.9rem; }
+        #alertBox { display: none; background: #22c55e; color: black; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 1.3rem; margin-bottom: 15px; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.03); } }
+    </style>
+</head>
+<body>
+
+    <div id="alertBox"></div>
+
+    <div class="box">
+        <h1>🎱 Panel Anfitrión</h1>
+        <button id="btnCreate" onclick="createRoom()">Crear Nueva Sala</button>
+
+        <div id="gamePanel" style="display:none;">
+            <p>Código de la sala para seguidores:</p>
+            <div class="room-code" id="displayRoom">----</div>
+            <p>Jugadores conectados: <b id="playerCount" style="color:var(--cyan)">0</b></p>
+            
+            <div class="ball" id="currentBall">--</div>
+            <button onclick="drawBall()"> Sacar Balota</button>
+
+            <h3>Historial de Balotas</h3>
+            <div class="history" id="history"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentRoomId = null;
+
+        function createRoom() {
+            socket.emit('createRoom');
+        }
+
+        socket.on('roomCreated', ({ roomId }) => {
+            currentRoomId = roomId;
+            document.getElementById('btnCreate').style.display = 'none';
+            document.getElementById('gamePanel').style.display = 'block';
+            document.getElementById('displayRoom').innerText = roomId;
+        });
+
+        function drawBall() {
+            if (currentRoomId) socket.emit('drawBall', { roomId: currentRoomId });
+        }
+
+        socket.on('newBall', ({ ball, history }) => {
+            let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
+            document.getElementById('currentBall').innerText = `${letter}${ball}`;
+
+            const historyDiv = document.getElementById('history');
+            historyDiv.innerHTML = history.map(n => {
+                let l = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O';
+                return `<span class="badge">${l}${n}</span>`;
+            }).reverse().join('');
+        });
+
+        socket.on('playerJoined', ({ totalPlayers }) => {
+            document.getElementById('playerCount').innerText = totalPlayers;
+        });
+
+        socket.on('playerLeft', ({ totalPlayers }) => {
+            document.getElementById('playerCount').innerText = totalPlayers;
+        });
+
+        socket.on('bingoClaimed', ({ username }) => {
+            const alert = document.getElementById('alertBox');
+            alert.innerText = ` ¡${username} HA CANTADO BINGO! `;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 8000);
+        });
+
+        socket.on('errorMsg', (msg) => alert(msg));
+    </script>
+</body>
+</html>

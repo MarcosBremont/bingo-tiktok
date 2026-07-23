@@ -1,0 +1,13 @@
+{
+  "name": "bingo-tiktok-live",
+  "version": "1.0.0",
+  "description": "Bingo interactivo en tiempo real con Socket.io",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

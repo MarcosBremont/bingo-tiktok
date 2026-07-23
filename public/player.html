@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jugador - Bingo TikTok</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --cyan: #00f2fe; --accent: #ff0050; --text: #fff; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .box { background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        input { width: 80%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 1rem; text-align: center; }
+        button { background: linear-gradient(45deg, var(--accent), var(--cyan)); border: none; color: white; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 20px; cursor: pointer; margin-top: 10px; width: 90%; }
+        .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 15px; }
+        .cell-head { font-weight: bold; color: var(--cyan); padding: 5px 0; font-size: 1.2rem; }
+        .cell { background: #334155; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; user-select: none; font-size: 1.1rem; }
+        .cell.free { background: var(--accent); font-size: 0.7rem; }
+        .cell.marked { background: #22c55e !important; color: white; }
+        .last-ball { font-size: 1.2rem; color: var(--cyan); margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="box" id="loginBox">
+        <h2>Unirse al Bingo</h2>
+        <input type="text" id="roomId" placeholder="Código de Sala (ej. 4821)">
+        <input type="text" id="username" placeholder="Tu @usuario de TikTok">
+        <button onclick="joinGame()">Entrar a Jugar</button>
+    </div>
+
+    <div class="box" id="gameBox" style="display:none;">
+        <h3 id="playerTitle"></h3>
+        <div class="last-ball">Última Balota: <b id="lastBall">--</b></div>
+        
+        <div class="card-grid" id="cardGrid">
+            <div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>
+        </div>
+
+        <button style="background: #22c55e; margin-top: 20px; font-size: 1.3rem;" onclick="claimBingo()">¡ BINGO ! 🎉</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myRoom = null;
+        let myUser = null;
+
+        function joinGame() {
+            myRoom = document.getElementById('roomId').value.trim();
+            myUser = document.getElementById('username').value.trim();
+
+            if (!myRoom || !myUser) return alert('Completa todos los campos.');
+            socket.emit('joinRoom', { roomId: myRoom, username: myUser });
+        }
+
+        socket.on('joinedSuccess', ({ roomId, card, history }) => {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('gameBox').style.display = 'block';
+            document.getElementById('playerTitle').innerText = `Jugador: ${myUser}`;
+
+            renderCard(card);
+            if(history.length > 0) {
+                let last = history[history.length - 1];
+                let l = last <= 15 ? 'B' : last <= 30 ? 'I' : last <= 45 ? 'N' : last <= 60 ? 'G' : 'O';
+                document.getElementById('lastBall').innerText = `${l}${last}`;
+            }
+        });
+
+        function renderCard(card) {
+            const grid = document.getElementById('cardGrid');
+            grid.innerHTML = '<div class="cell-head">B</div><div class="cell-head">I</div><div class="cell-head">N</div><div class="cell-head">G</div><div class="cell-head">O</div>';
+
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const val = card[r][c];
+
+                    if (val === 'LIBRE') {
+                        cell.classList.add('free', 'marked');
+                        cell.innerText = '★ LIBRE';
+                    } else {
+                        cell.innerText = val;
+                        cell.onclick = () => cell.classList.toggle('marked');
+                    }
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        socket.on('newBall', ({ ball }) => {
+            let letter = ball <= 15 ? 'B' : ball <= 30 ? 'I' : ball <= 45 ? 'N' : ball <= 60 ? 'G' : 'O';
+            document.getElementById('lastBall').innerText = `${letter}${ball}`;
+        });
+
+        function claimBingo() {
+            socket.emit('claimBingo', { roomId: myRoom, username: myUser });
+            alert('¡Has enviado la alerta de BINGO al anfitrión!');
+        }
+
+        socket.on('errorMsg', (msg) => alert(msg));
+    </script>
+</body>
+</html>
