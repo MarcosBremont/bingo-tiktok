@@ -242,7 +242,7 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
         for (let r = 0; r < 5; r++) {
             if (grid[r].every(Boolean)) {
                 matchedPatterns.push('Línea Horizontal');
-                card[r].forEach(val => { if (val !== 'FREE') winningBallsSet.add(val); });
+                card[r].forEach(val => winningBallsSet.add(val));
             }
         }
         // Verticales
@@ -250,7 +250,7 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
             if (grid.every(row => row[c])) {
                 matchedPatterns.push('Línea Vertical');
                 for (let r = 0; r < 5; r++) {
-                    if (card[r][c] !== 'FREE') winningBallsSet.add(card[r][c]);
+                    winningBallsSet.add(card[r][c]);
                 }
             }
         }
@@ -262,31 +262,33 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
         
         if (diag1) {
             matchedPatterns.push('Diagonal ↘');
-            [0, 1, 2, 3, 4].forEach(i => { if (card[i][i] !== 'FREE') winningBallsSet.add(card[i][i]); });
+            [0, 1, 2, 3, 4].forEach(i => winningBallsSet.add(card[i][i]));
         }
         if (diag2) {
             matchedPatterns.push('Diagonal ↙');
-            [0, 1, 2, 3, 4].forEach(i => { if (card[i][4 - i] !== 'FREE') winningBallsSet.add(card[i][4 - i]); });
+            [0, 1, 2, 3, 4].forEach(i => winningBallsSet.add(card[i][4 - i]));
         }
     }
 
     if (activeModes.includes('corners')) {
         if (grid[0][0] && grid[0][4] && grid[4][0] && grid[4][4]) {
             matchedPatterns.push('4 Esquinas');
-            [card[0][0], card[0][4], card[4][0], card[4][4]].forEach(val => {
-                if (val !== 'FREE') winningBallsSet.add(val);
-            });
+            [card[0][0], card[0][4], card[4][0], card[4][4]].forEach(val => winningBallsSet.add(val));
         }
     }
 
     if (activeModes.includes('full')) {
         if (grid.every(row => row.every(Boolean))) {
             matchedPatterns.push('Cartón Lleno');
-            card.forEach(row => row.forEach(val => { if (val !== 'FREE') winningBallsSet.add(val); }));
+            card.forEach(row => row.forEach(val => winningBallsSet.add(val)));
         }
     }
 
-    const formattedWinningBalls = Array.from(winningBallsSet).map(num => `${getBingoLetter(num)}${num}`);
+    // Convertir casillas numéricas a B12, N37, etc., manteniendo 'FREE' tal cual
+    const formattedWinningBalls = Array.from(winningBallsSet).map(val => {
+        if (val === 'FREE') return 'FREE';
+        return `${getBingoLetter(Number(val))}${val}`;
+    });
 
     return {
         isWinner: matchedPatterns.length > 0,

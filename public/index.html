@@ -9,7 +9,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
         body { background: var(--bg); color: var(--text); padding: 20px; }
         
-        /* Contenedor Grid Principal con límites para evitar desbordamiento */
         .grid-container { 
             display: grid; 
             grid-template-columns: 320px minmax(0, 1fr) 300px; 
@@ -32,7 +31,6 @@
         .btn-danger { background: var(--danger); }
         .btn-warning { background: #d97706; }
 
-        /* Alineación de Checkboxes */
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
         .checkbox-group label { display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 10px 12px; border-radius: 6px; border: 1px solid #334155; cursor: pointer; font-size: 0.95rem; }
         .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
@@ -41,7 +39,6 @@
         .feed { height: 200px; overflow-y: auto; background: #0f172a; padding: 10px; border-radius: 6px; font-size: 0.85rem; }
         .room-badge { background: #334155; color: #f59e0b; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 1.3rem; display: inline-block; margin-bottom: 10px; letter-spacing: 2px; }
 
-        /* Historial de Balotas */
         .history-container { 
             display: flex; 
             flex-wrap: wrap; 
@@ -69,7 +66,6 @@
             flex-shrink: 0;
         }
 
-        /* Cartones Anfitrión */
         .cards-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 15px; }
         .bingo-card { background: #0f172a; padding: 12px; border-radius: 10px; width: 280px; border: 1px solid #334155; }
         .card-header { display: grid; grid-template-columns: repeat(5, 1fr); text-align: center; font-weight: bold; color: #f59e0b; margin-bottom: 6px; font-size: 1.1rem; }
@@ -85,18 +81,22 @@
             flex-wrap: wrap;
             gap: 4px;
             margin-top: 6px;
+            justify-content: center;
         }
         .winning-ball-badge {
             background: #f59e0b;
             color: #0f172a;
             font-weight: bold;
-            font-size: 0.75rem;
-            padding: 2px 6px;
+            font-size: 0.8rem;
+            padding: 3px 8px;
             border-radius: 10px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
+        .winning-ball-badge.free-badge {
+            background: #d97706;
+            color: #ffffff;
+        }
 
-        /* Modales */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -182,6 +182,11 @@
             </div>
             <button onclick="saveWinModes()" style="margin-top: 10px;">Guardar Reglas</button>
 
+            <h2 style="margin-top: 20px;">🔊 Opciones de Audio</h2>
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="enableVoice" checked> Cantar Balotas (Voz)</label>
+            </div>
+
             <h2 style="margin-top: 20px;">🎵 TikTok Live</h2>
             <input type="text" id="tiktokUser" placeholder="@usuario_tiktok">
             <button class="btn-success" onclick="connectTikTok()">Conectar TikTok</button>
@@ -234,6 +239,25 @@
         let currentRoomCode = "";
         let hostCards = [];
 
+        // Función de sintetizador de Voz (Text-To-Speech)
+        function speakBall(formattedBall) {
+            const voiceEnabled = document.getElementById('enableVoice').checked;
+            if (!voiceEnabled || !('speechSynthesis' in window)) return;
+
+            window.speechSynthesis.cancel(); // Cancelar audios anteriores en cola
+
+            // Separar letra y número para pronunciación clara (ej. "B 7")
+            const letter = formattedBall.charAt(0);
+            const number = formattedBall.slice(1);
+            const textToSpeak = `${letter}... ${number}`;
+
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'es-ES';
+            utterance.rate = 0.9; // Velocidad ligeramente pausada
+
+            window.speechSynthesis.speak(utterance);
+        }
+
         function loginHost() {
             const pass = document.getElementById('hostPass').value;
             socket.emit('authHost', pass, (res) => {
@@ -264,21 +288,28 @@
         socket.on('numberDrawn', ({ ball, drawnHistory }) => {
             document.getElementById('giantBall').innerText = ball.formatted;
             renderHistory(drawnHistory);
+            speakBall(ball.formatted); // Cantar balota en voz alta
         });
 
+        function buildWinningBallsHtml(winningBalls) {
+            if (!winningBalls || winningBalls.length === 0) return '';
+            return `<div class="winning-balls-container">
+                ${winningBalls.map(b => {
+                    const isFree = b === 'FREE';
+                    return `<span class="winning-ball-badge ${isFree ? 'free-badge' : ''}">${b}</span>`;
+                }).join('')}
+               </div>`;
+        }
+
         socket.on('bingoWinner', ({ username, cardIndex, patterns, winningBalls }) => {
-            const ballsHtml = winningBalls && winningBalls.length > 0
-                ? `<div class="winning-balls-container">
-                    ${winningBalls.map(b => `<span class="winning-ball-badge">${b}</span>`).join('')}
-                   </div>`
-                : '';
+            const ballsHtml = buildWinningBallsHtml(winningBalls);
 
             const feed = document.getElementById('winnersList');
             feed.innerHTML = `
                 <div style="background:#14532d; padding:10px; border-radius:8px; margin-bottom:8px; border: 1px solid #22c55e;">
                     <strong>🎉 ¡BINGO! ${username}</strong><br>
                     <small style="color: #cbd5e1;">Cartón #${cardIndex + 1} (${patterns.join(', ')})</small>
-                    <div style="margin-top: 4px; font-size: 0.8rem; color: #fef08a;">Balotas ganadoras:</div>
+                    <div style="margin-top: 4px; font-size: 0.8rem; color: #fef08a;">Casillas ganadoras:</div>
                     ${ballsHtml}
                 </div>
             ` + feed.innerHTML;
