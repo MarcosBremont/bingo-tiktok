@@ -14,8 +14,8 @@ app.use(express.static('public'));
 
 // Configuración de Seguridad y ElevenLabs
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "admin123";
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "sk_69df743981507b6df7a198de7bd12e2fae4df9c6677b3bcf"; // Coloca tu API Key de ElevenLabs
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // ID de voz (por defecto Rachel / Multilingüe)
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "sk_2c50adf4d611f794a1884b71e10ee84a239a40aab8fc6665"; // Coloca tu API Key de ElevenLabs
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "J2Jb9yZNvpXUNAL3a2bw"; // ID de voz (por defecto Rachel / Multilingüe)
 
 function generateRoomCode(length = 6) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
