@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { WebcastPushConnection } = require('tiktok-live-connector');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +12,10 @@ const io = new Server(server, {
 
 app.use(express.static('public'));
 
+// Configuración de Seguridad y ElevenLabs
 const HOST_PASSWORD = process.env.HOST_PASSWORD || "admin123";
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "TU_API_KEY_AQUI"; // Coloca tu API Key de ElevenLabs
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // ID de voz (por defecto Rachel / Multilingüe)
 
 function generateRoomCode(length = 6) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -29,6 +33,45 @@ function getBingoLetter(num) {
     if (num >= 46 && num <= 60) return 'G';
     if (num >= 61 && num <= 75) return 'O';
     return '';
+}
+
+// Mapa para pronunciación natural en español para la API
+const letterSpokenMap = {
+    'B': 'Be',
+    'I': 'I',
+    'N': 'Ene',
+    'G': 'Ge',
+    'O': 'O'
+};
+
+// Función para solicitar audio Base64 a ElevenLabs
+async function generateElevenLabsAudio(text) {
+    try {
+        const response = await axios({
+            method: 'post',
+            url: `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
+            headers: {
+                'Accept': 'audio/mpeg',
+                'xi-api-key': ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            data: {
+                text: text,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.75
+                }
+            },
+            responseType: 'arraybuffer'
+        });
+
+        const base64Audio = Buffer.from(response.data, 'binary').toString('base64');
+        return `data:audio/mpeg;base64,${base64Audio}`;
+    } catch (error) {
+        console.error("Error consultando ElevenLabs API:", error.response ? error.response.data.toString() : error.message);
+        return null;
+    }
 }
 
 let gameState = {
@@ -71,7 +114,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('drawRandomNumber', ({ password }) => {
+    socket.on('drawRandomNumber', async ({ password }) => {
         if (password !== HOST_PASSWORD) return;
 
         const available = [];
@@ -84,20 +127,26 @@ io.on('connection', (socket) => {
         if (available.length > 0) {
             const randomIndex = Math.floor(Math.random() * available.length);
             const num = available[randomIndex];
+            const letter = getBingoLetter(num);
             const ballData = {
                 number: num,
-                letter: getBingoLetter(num),
-                formatted: `${getBingoLetter(num)}${num}`
+                letter: letter,
+                formatted: `${letter}${num}`
             };
 
             gameState.drawnNumbers.push(num);
             gameState.drawnHistory.push(ballData);
             gameState.lastDrawnBall = ballData;
 
+            // Generar audio con ElevenLabs en formato "Be... 7"
+            const spokenText = `${letterSpokenMap[letter] || letter}, ${num}`;
+            const audioDataUri = await generateElevenLabsAudio(spokenText);
+
             io.emit('numberDrawn', {
                 ball: ballData,
                 drawnNumbers: gameState.drawnNumbers,
-                drawnHistory: gameState.drawnHistory
+                drawnHistory: gameState.drawnHistory,
+                audioUrl: audioDataUri // Enviar el audio generado al cliente
             });
         }
     });
@@ -238,14 +287,12 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
     const winningBallsSet = new Set();
 
     if (activeModes.includes('line')) {
-        // Horizontales
         for (let r = 0; r < 5; r++) {
             if (grid[r].every(Boolean)) {
                 matchedPatterns.push('Línea Horizontal');
                 card[r].forEach(val => winningBallsSet.add(val));
             }
         }
-        // Verticales
         for (let c = 0; c < 5; c++) {
             if (grid.every(row => row[c])) {
                 matchedPatterns.push('Línea Vertical');
@@ -284,7 +331,6 @@ function checkBingoWinner(card, drawnNumbers, activeModes) {
         }
     }
 
-    // Convertir casillas numéricas a B12, N37, etc., manteniendo 'FREE' tal cual
     const formattedWinningBalls = Array.from(winningBallsSet).map(val => {
         if (val === 'FREE') return 'FREE';
         return `${getBingoLetter(Number(val))}${val}`;

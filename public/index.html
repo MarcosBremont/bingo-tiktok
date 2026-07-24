@@ -75,7 +75,6 @@
         .cell.free { background: #d97706; font-size: 0.75rem; }
         .bingo-btn { background: #dc2626; margin-top: 8px; padding: 10px; font-size: 0.95rem; }
 
-        /* Badges Balotas y Casillas Ganadoras */
         .winning-balls-container {
             display: flex;
             flex-wrap: wrap;
@@ -157,7 +156,7 @@
         </div>
     </div>
 
-    <!-- MODAL DIALOGO BINGO GANADOR -->
+    <!-- MODAL BINGO GANADOR -->
     <div id="winnerModal" class="modal-overlay">
         <div class="modal-card">
             <h2>🎉 ¡TENEMOS UN GANADOR! 🎉</h2>
@@ -184,7 +183,7 @@
 
             <h2 style="margin-top: 20px;">🔊 Opciones de Audio</h2>
             <div class="checkbox-group">
-                <label><input type="checkbox" id="enableVoice" checked> Cantar Balotas (Voz en Español)</label>
+                <label><input type="checkbox" id="enableVoice" checked> Cantar Balotas (ElevenLabs)</label>
             </div>
 
             <h2 style="margin-top: 20px;">🎵 TikTok Live</h2>
@@ -239,48 +238,13 @@
         let currentRoomCode = "";
         let hostCards = [];
 
-        // Pronunciación exacta en español para cada letra
-        const letterPronunciation = {
-            'B': 'Be',
-            'I': 'I',
-            'N': 'Ene',
-            'G': 'Ge',
-            'O': 'O'
-        };
-
-        // Función de sintetizador de voz (Text-To-Speech en Español)
-        function speakBall(formattedBall) {
+        // Reproducir audio recibido desde ElevenLabs API
+        function playElevenLabsAudio(audioUrl) {
             const voiceEnabled = document.getElementById('enableVoice').checked;
-            if (!voiceEnabled || !('speechSynthesis' in window)) return;
+            if (!voiceEnabled || !audioUrl) return;
 
-            window.speechSynthesis.cancel(); // Detener audios previos en cola
-
-            const letterChar = formattedBall.charAt(0);
-            const number = formattedBall.slice(1);
-            
-            const letterSpoken = letterPronunciation[letterChar] || letterChar;
-            const textToSpeak = `${letterSpoken}, ${number}`;
-
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            utterance.lang = 'es-ES';
-            utterance.rate = 0.95;
-
-            // Buscar voz en español del sistema/navegador
-            const voices = window.speechSynthesis.getVoices();
-            const spanishVoice = voices.find(voice => voice.lang.startsWith('es'));
-            
-            if (spanishVoice) {
-                utterance.voice = spanishVoice;
-            }
-
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // Cargar voces del navegador al iniciar
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.getVoices();
-            };
+            const audio = new Audio(audioUrl);
+            audio.play().catch(err => console.error("Error al reproducir audio ElevenLabs:", err));
         }
 
         function loginHost() {
@@ -310,10 +274,10 @@
             }
         });
 
-        socket.on('numberDrawn', ({ ball, drawnHistory }) => {
+        socket.on('numberDrawn', ({ ball, drawnHistory, audioUrl }) => {
             document.getElementById('giantBall').innerText = ball.formatted;
             renderHistory(drawnHistory);
-            speakBall(ball.formatted);
+            playElevenLabsAudio(audioUrl);
         });
 
         function buildWinningBallsHtml(winningBalls) {
